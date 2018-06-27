@@ -5,7 +5,7 @@
 Let's start with a simple problem. We want to write a TCP server that receives line based messages from a client. The typical
 code you would write in .NET today looks something like this:
 
-```
+```C#
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
@@ -17,7 +17,7 @@ This code might work when testing locally but it's broken in general because the
 
 We need to buffer the incoming data until we have found a new line.
 
-```
+```C#
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
@@ -33,7 +33,7 @@ ProcessLine(buffer, 0, lineLength);
 
 Once again, this might work locally but it's possible that the line is bigger than 4 KiB (4096 bytes). So we need to resize the input buffer until we have found a new line.
 
-```
+```C#
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
@@ -50,7 +50,7 @@ ProcessLine(buffer);
 
 The resizing causes extra allocations and copies. To avoid this, we can store a list of buffers instead.
 
-```
+```C#
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 var buffers = new List<byte[]>();
@@ -98,7 +98,7 @@ foreach (var buffer buffers)
 
 With `System.IO.Pipelines` there is a writer and a reader. The `Socket` is the writer and the code processing the lines is the reader.
 
-```
+```C#
 var pipe = new Pipe();
 var socket = new Socket(...);
 Task writing = ReadFromSocket(socket, pipe.Writer);
