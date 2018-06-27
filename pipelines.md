@@ -59,6 +59,7 @@ while (lineLength == -1)
         Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
         buffer = newBuffer;
         read = 0;
+        remaining = buffer.Length;
     }
     
     var current = await stream.ReadAsync(buffer, read, remaining);
