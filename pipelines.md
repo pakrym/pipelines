@@ -250,9 +250,8 @@ multiple levels
 - No common pattern for pooling. Today the consumer of a `Stream` is exposed to using the `ArrayPool<byte>` directly. Pipelines expose APIs that allow pooling to be used safely without consumer intervention.
 
 
-### Benefits
-
-- ReadAsync never copies
+#### Notes from slides
+- ReadAsync returns the internal buffer
 - Pipe is responsible for buffer management
 - Ability to read without consuming
 - No allocations per read/write
