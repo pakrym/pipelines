@@ -189,3 +189,9 @@ var reader = new FilePipeReader();
 - No allocations per read/write
 - Supports multi-segmented reads/writes
 
+
+![image](https://user-images.githubusercontent.com/95136/41954870-7ae78b26-7992-11e8-8a84-9cd92367a012.png)
+
+![image](https://user-images.githubusercontent.com/95136/41954897-94a630ee-7992-11e8-9b1b-c541ba05494b.png)
+
+![image](https://user-images.githubusercontent.com/95136/41954905-9f7ed692-7992-11e8-9315-a4067224f8ef.png)
