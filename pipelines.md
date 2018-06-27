@@ -220,7 +220,7 @@ await writing;
 There are quite a few new concepts in the pipelines version of the code. Lets break it down step by step:
 
 
-### Notes and other random things 
+# Notes and other random things 
 
 
 When doing IO in .NET the primary exchange type used today is a `System.IO.Stream`. The typical pattern for reading forces the caller to allocate a `byte[]` to pass into Read\ReadAsync. 
