@@ -26,10 +26,18 @@ var lineLength = -1;
 while (lineLength == -1 && read < buffer.Length)
 {
     var current = await stream.ReadAsync(buffer, read, buffer.Length - read);
+    if (current == 0)
+    {
+        break;
+    }
     read += current;
     lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 }
-ProcessLine(buffer, 0, lineLength);
+
+if (lineLength > 0)
+{
+    ProcessLine(buffer, 0, lineLength);
+}
 ```
 
 Once again, this might work locally but it's possible that the line is bigger than 4 KiB (4096 bytes). So we need to resize the input buffer until we have found a new line.
@@ -39,14 +47,34 @@ var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
 var read = 0;
-while (true)
+var lineLength = -1;
+while (lineLength == -1)
 {
-    var cur = await stream.ReadAsync(buffer, read, buffer.Length - read);
-    read += cur;
-
-    if (cur == 0) break;
+    var remaining = buffer.Length - read;
+    
+    if (remaining == 0)
+    {
+        // Resize the buffer and copy all of the data
+        var newBuffer = new byte[buffer.Length * 2];
+        Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
+        buffer = newBuffer;
+        read = 0;
+    }
+    
+    var current = await stream.ReadAsync(buffer, read, remaining);
+    if (current == 0)
+    {
+        break;
+    }
+    
+    read += current;
+    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 }
-ProcessLine(buffer);
+
+if (lineLength > 0) 
+{
+    ProcessLine(buffer, 0, lineLength);
+}
 ```
 
 The resizing causes extra allocations and copies. To avoid this, we can store a list of buffers instead.
