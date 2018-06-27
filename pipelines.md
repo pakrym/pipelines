@@ -220,6 +220,7 @@ await writing;
 There are quite a few new concepts in the pipelines version of the code. Lets break it down step by step:
 
 
+### Notes and other random things 
 
 
 When doing IO in .NET the primary exchange type used today is a `System.IO.Stream`. The typical pattern for reading forces the caller to allocate a `byte[]` to pass into Read\ReadAsync. 
@@ -228,6 +229,7 @@ When doing IO in .NET the primary exchange type used today is a `System.IO.Strea
 
 - This can cause more copying that is necessary as the `Stream` has to copy from its internal buffers to the user specified buffer. 
 
+#### Marc Gravel's post on pipelines when it was called channels
 
 The short description of Channels would be something like: "high performance zero-copy buffer-pool-managed asynchronous message pipes". Which is quite a mouthful, so we need to break that down a bit. I'm going to talk primarily in the context of network IO software (aka network client libraries and server applications), but the same concepts apply equally to anything where data goes in or out of a stream of bytes. It is relatively easy to write a basic client library or server application for a simple protocol; heck, spin up a Socket via a listener, maybe wrap it in a NetworkStream, call Read until we get a message we can process, then spit back a response. But trying to do that efficiently is remarkably hard – especially when you are talking about high volumes of connections. I don’t want to get clogged down in details, but it quickly gets massively complicated, with concerns like:
 
@@ -243,19 +245,10 @@ The short description of Channels would be something like: "high performance zer
 Every layer is forced to allocate `byte[]` to be able to read even before you know data is ready. Buffering on 
 multiple levels
 
-### History
-
-This came from implementing the Kestrel HTTP web server which powers ASP.NET Core.
-
 [Image here?]
 
 - No common pattern for pooling. Today the consumer of a `Stream` is exposed to using the `ArrayPool<byte>` directly. Pipelines expose APIs that allow pooling to be used safely without consumer intervention.
 
-Sample here
-
-```C#
-var reader = new FilePipeReader();
-```
 
 ### Benefits
 
