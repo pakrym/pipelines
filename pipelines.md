@@ -83,19 +83,54 @@ The resizing causes extra allocations and copies. To avoid this, we can store a 
 ```C#
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
+var buffers = new List<ArraySegment<byte>>();
+byte[] buffer = new byte[4096];
+var read = 0;
+var lineLength = -1;
+while (lineLength == -1)
+{
+    var remaining = buffer.Length - read;
+    
+    if (remaining == 0)
+    {
+        // This buffer is full so add it to the list
+        buffers.Add(new ArraySegment<byte>(buffer));
+        buffer = new byte[4096];
+        read = 0;
+        remaining = buffer.Length;
+    }
+    
+    var current = await stream.ReadAsync(buffer, read, remaining);
+    if (current == 0)
+    {
+        break;
+    }
+    
+    read += current;
+    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+}
+
+if (lineLength > 0) 
+{
+    // Add the buffer to the list of buffers
+    buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+
+    ProcessLine(buffers);
+}
+
+var socket = new Socket(...);
+var stream = new NetworkStream(socket);
 var buffers = new List<byte[]>();
 byte[] buffer = new byte[4096];
 var read = 0;
-while (true)
-{
 
-    while (read < buffer.Length)
-    {
-        read = await stream.ReadAsync(buffer, raead, buffer.Length);
-    }
-    buffers.Add(buffer);
-    buffer = new byte[4096];
+while (read < buffer.Length)
+{
+    read = await stream.ReadAsync(buffer, raead, buffer.Length);
 }
+buffers.Add(buffer);
+buffer = new byte[4096];
+
 ProcessLine(buffers);
 ```
 
