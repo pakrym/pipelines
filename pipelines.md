@@ -1,11 +1,9 @@
 
-## 
-System.IO.Pipelines
+## System.IO.Pipelines
 
 
 
-### 
-What is it?
+### 4What is it?
 
 
 
@@ -311,9 +309,6 @@ reader.Complete();
 }
 
 
-
-
-
 await reading;
 
 await writing;
@@ -327,9 +322,7 @@ When doing IO in .NET the primary exchange type used today is a
 `byte[]` to pass into Read\ReadAsync.
 
 
-
-- Various
-`Stream` implementations have an internal buffer for performance reasons.
+- Various `Stream` implementations have an internal buffer for performance reasons.
 
 
 
@@ -372,8 +365,7 @@ multiple levels
 
 
 
-### 
-History
+### History
 
 
 
@@ -406,10 +398,7 @@ FilePipeReader();
 
 
 
-### 
-Benefits
-
-
+### Benefits
 
 - ReadAsync never copies
 
@@ -420,11 +409,3 @@ Benefits
 - No allocations per read/write
 
 - Supports multi-segmented reads/writes
-
-
-
-
-
-
-
-Sent from Outlook
