@@ -2,6 +2,8 @@
 
 ### What is it?
 
+System.IO.Pipelines is a library that is designed for doing high performance IO in .NET. It's new in .NET Core 2.1 and is a netstandard library that works on all .NET platforms. 
+
 Let's start with a simple problem. We want to write a TCP server that receives line based messages from a client. The typical
 code you would write in .NET today looks something like this:
 
@@ -214,6 +216,11 @@ async Task ReadFromPipe(PipeReader reader)
 await reading;
 await writing;
 ```
+
+There are quite a few new concepts in the pipelines version of the code. Lets break it down step by step:
+
+
+
 
 When doing IO in .NET the primary exchange type used today is a `System.IO.Stream`. The typical pattern for reading forces the caller to allocate a `byte[]` to pass into Read\ReadAsync. 
 
