@@ -117,21 +117,6 @@ if (lineLength > 0)
 
     ProcessLine(buffers);
 }
-
-var socket = new Socket(...);
-var stream = new NetworkStream(socket);
-var buffers = new List<byte[]>();
-byte[] buffer = new byte[4096];
-var read = 0;
-
-while (read < buffer.Length)
-{
-    read = await stream.ReadAsync(buffer, raead, buffer.Length);
-}
-buffers.Add(buffer);
-buffer = new byte[4096];
-
-ProcessLine(buffers);
 ```
 
 Now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0:
@@ -139,25 +124,45 @@ Now we have a bunch of heap allocated buffers in a list. We can optimize this by
 ```C#
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
-var buffers = new List<byte[]>();
+var buffers = new List<ArraySegment<byte>>();
 byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
 var read = 0;
-
-while (true)
+var lineLength = -1;
+while (lineLength == -1)
 {
-    while (read < buffer.Length)
+    var remaining = buffer.Length - read;
+    
+    if (remaining == 0)
     {
-        read = await stream.ReadAsync(buffer, read, buffer.Length);
+        // This buffer is full so add it to the list
+        buffers.Add(new ArraySegment<byte>(buffer));
+        buffer = ArrayPool<byte>.Shared.Rent(4096);
+        read = 0;
+        remaining = buffer.Length;
     }
-    buffers.Add(buffer);
-    buffer = ArrayPool<byte>.Shared.Rent(4096);
+    
+    var current = await stream.ReadAsync(buffer, read, remaining);
+    if (current == 0)
+    {
+        break;
+    }
+    
+    read += current;
+    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 }
 
-ProcessLine(buffers);
+if (lineLength > 0) 
+{
+    // Add the buffer to the list of buffers
+    buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
+    ProcessLine(buffers);
+}
+
+// Return to the array pool so we don't leak memory
 foreach (var buffer buffers) 
 {
-    ArrayPool<byte>.Shared.Return(buffer);
+    ArrayPool<byte>.Shared.Return(buffer.Array);
 }
 ```
 
