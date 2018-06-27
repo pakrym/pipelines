@@ -23,9 +23,10 @@ var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
 var read = 0;
 var lineLength = -1;
-while (lineLength == -1)
+while (lineLength == -1 && read < buffer.Length)
 {
-    var read = await stream.ReadAsync(buffer, 0, buffer.Length);
+    var current = await stream.ReadAsync(buffer, read, buffer.Length - read);
+    read += current;
     lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 }
 ProcessLine(buffer, 0, lineLength);
