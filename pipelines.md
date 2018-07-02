@@ -197,6 +197,7 @@ async Task ReadFromPipe(PipeReader reader)
     while (true)
     {
         ReadResult result = await reader.ReadAsync();
+
         ReadOnlySequence<byte> buffer = result.Buffer;
         SequencePosition? position = buffer.PositionOf((byte)'\n');
 
@@ -206,7 +207,12 @@ async Task ReadFromPipe(PipeReader reader)
             buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
         }
 
-        reader.Advance(buffer.Start, buffer.End);
+        reader.AdvanceTo(buffer.Start, buffer.End);
+        
+        if (result.IsCompleted)
+        {
+            break;
+        }
     }
 
     reader.Complete();
@@ -217,8 +223,24 @@ await reading;
 await writing;
 ```
 
-There are quite a few new concepts in the pipelines version of the code. Lets break it down step by step:
+The pipelines version of our line reader has 2 loops:
+- One loop reads from the Socket and writes into the PipeWriter
+- The other loop reads from the PipeReader and parses incoming lines
 
+Unlike, the `Stream` version of the example, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. All buffer management is delegated to the PipeReader/PipeWriter implementations. This makes it easier for consuming code to focus solely on the business logic instead of complex buffer management. In the first loop, we first call `PipeWriter.GetMemory()` to get some memory from the underlying writer then we call `PipeWriter.Advance(int)` to tell the PipeWriter how much data we actually wrote to the buffer. We then call `PipeWriter.FlushAsync()` to make the data available to the `PipeReader`.
+
+In the second loop, we're consuming the buffers written by the `PipeWriter` which ultimately comes from the `Socket`. When the call to `PipeReader.ReadAsync()` returns, we get a `ReadResult` which contains 2 important pieces of information, the data that was read in the form of `ReadOnlySequence<byte>` and a bool `IsCompleted` that lets the reader know if more data would be written into the pipe. After finding the line end delimeter and parsing the line, we slice the buffer to skip what we've already processed and then we call `PipeReader.AdvanceTo` to tell the `PipeReader` how much data we have both consumed and observed.
+
+There are a few more concepts to grok here but under the covers there are lots of things being managed for you:
+- The `Pipe` is efficiently managing renting/returning pooled buffers.
+  - When you call `PipeWriter.GetMemory()`, the `Pipe` will efficiently manage a linked list of segments.
+
+
+### ReadOnlySequence<T>
+
+Both `Span<T>` and `Memory<T>` provide functionality for contiguous buffers such as arrays and strings. System.Memory contains a new sliceable type called `ReadOnlySequence<T>` within the System.Buffers namespace that offers support for discontiguous buffers represented by a linked list of `ReadOnlyMemory<T>` nodes. 
+
+You can read more about it on the https://www.codemag.com/Article/1807051/Introducing-.NET-Core-2.1-Flagship-Types-Span-T-and-Memory-T
 
 # Notes and other random things 
 
