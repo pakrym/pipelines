@@ -130,7 +130,7 @@ var buffers = new List<ArraySegment<byte>>();
 byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
 var read = 0;
 var lineLength = -1;
-while (lineLength == -1)
+while (true)
 {
     var remaining = buffer.Length - read;
     
@@ -151,20 +151,21 @@ while (lineLength == -1)
     
     read += current;
     lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-}
+    
+    
+    if (lineLength > 0) 
+    {
+        // Add the buffer to the list of buffers
+        buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
-if (lineLength > 0) 
-{
-    // Add the buffer to the list of buffers
-    buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+        ProcessLine(buffers);
+    }
 
-    ProcessLine(buffers);
-}
-
-// Return to the array pool so we don't leak memory
-foreach (var buffer buffers) 
-{
-    ArrayPool<byte>.Shared.Return(buffer.Array);
+    // Return to the array pool so we don't leak memory
+    foreach (var buffer buffers) 
+    {
+        ArrayPool<byte>.Shared.Return(buffer.Array);
+    }
 }
 ```
 
