@@ -24,8 +24,7 @@ var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
 var read = 0;
-var lineLength = -1;
-while (lineLength == -1 && read < buffer.Length)
+while (read < buffer.Length)
 {
     var current = await stream.ReadAsync(buffer, read, buffer.Length - read);
     if (current == 0)
@@ -33,12 +32,13 @@ while (lineLength == -1 && read < buffer.Length)
         break;
     }
     read += current;
-    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-}
-
-if (lineLength > 0)
-{
-    ProcessLine(buffer, 0, lineLength);
+    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+    
+    
+    if (lineLength > 0)
+    {
+        ProcessLine(buffer, 0, lineLength);
+    }
 }
 ```
 
@@ -49,8 +49,7 @@ var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
 var read = 0;
-var lineLength = -1;
-while (lineLength == -1)
+while (true)
 {
     var remaining = buffer.Length - read;
     
@@ -71,12 +70,12 @@ while (lineLength == -1)
     }
     
     read += current;
-    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-}
-
-if (lineLength > 0) 
-{
-    ProcessLine(buffer, 0, lineLength);
+    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+    
+    if (lineLength > 0) 
+    {
+        ProcessLine(buffer, 0, lineLength);
+    }
 }
 ```
 
@@ -88,8 +87,7 @@ var stream = new NetworkStream(socket);
 var buffers = new List<ArraySegment<byte>>();
 byte[] buffer = new byte[4096];
 var read = 0;
-var lineLength = -1;
-while (lineLength == -1)
+while (true)
 {
     var remaining = buffer.Length - read;
     
@@ -109,15 +107,15 @@ while (lineLength == -1)
     }
     
     read += current;
-    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-}
+    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+    
+    if (lineLength > 0) 
+    {
+        // Add the buffer to the list of buffers
+        buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
-if (lineLength > 0) 
-{
-    // Add the buffer to the list of buffers
-    buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
-
-    ProcessLine(buffers);
+        ProcessLine(buffers);
+    }
 }
 ```
 
@@ -129,7 +127,6 @@ var stream = new NetworkStream(socket);
 var buffers = new List<ArraySegment<byte>>();
 byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
 var read = 0;
-var lineLength = -1;
 while (true)
 {
     var remaining = buffer.Length - read;
@@ -150,7 +147,7 @@ while (true)
     }
     
     read += current;
-    lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
     
     
     if (lineLength > 0) 
