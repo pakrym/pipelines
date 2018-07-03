@@ -8,34 +8,40 @@ Let's start with a simple problem. We want to write a TCP server that receives l
 code you would write in .NET today looks something like this:
 
 ```C#
-var socket = new Socket(...);
-var stream = new NetworkStream(socket);
-byte[] buffer = new byte[4096];
-await stream.ReadAsync(buffer, 0, buffer.Length);
-ProcessLine(buffer);
+async Task AcceptAsync(Socket socket)
+{
+    var socket = new Socket(...);
+    var stream = new NetworkStream(socket);
+    byte[] buffer = new byte[4096];
+    await stream.ReadAsync(buffer, 0, buffer.Length);
+    ProcessLine(buffer);
+}
 ```
 
 This code might work when testing locally but it's broken in general because the entire message (end of line) may not been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. This is a common mistake when using `Stream` today. To make this work, we need to buffer the incoming data until we have found a new line.
 
 ```C#
-var socket = new Socket(...);
-var stream = new NetworkStream(socket);
-byte[] buffer = new byte[4096];
-var read = 0;
-while (read < buffer.Length)
+async Task AcceptAsync(Socket socket)
 {
-    var current = await stream.ReadAsync(buffer, read, buffer.Length - read);
-    if (current == 0)
+    var socket = new Socket(...);
+    var stream = new NetworkStream(socket);
+    byte[] buffer = new byte[4096];
+    var read = 0;
+    while (read < buffer.Length)
     {
-        break;
-    }
-    read += current;
-    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-    
-    if (lineLength > 0)
-    {
-        ProcessLine(buffer, 0, lineLength);
-        read = 0;
+        var current = await stream.ReadAsync(buffer, read, buffer.Length - read);
+        if (current == 0)
+        {
+            break;
+        }
+        read += current;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+
+        if (lineLength > 0)
+        {
+            ProcessLine(buffer, 0, lineLength);
+            read = 0;
+        }
     }
 }
 ```
@@ -43,37 +49,39 @@ while (read < buffer.Length)
 Once again, this might work locally but it's possible that the line is bigger than 4 KiB (4096 bytes). So we need to resize the input buffer until we have found a new line.
 
 ```C#
-var socket = new Socket(...);
-var stream = new NetworkStream(socket);
-byte[] buffer = new byte[4096];
-var read = 0;
-while (true)
+async Task AcceptAsync(Socket socket)
 {
-    var remaining = buffer.Length - read;
-    
-    if (remaining == 0)
+    var stream = new NetworkStream(socket);
+    byte[] buffer = new byte[4096];
+    var read = 0;
+    while (true)
     {
-        // Resize the buffer and copy all of the data
-        var newBuffer = new byte[buffer.Length * 2];
-        Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
-        buffer = newBuffer;
-        read = 0;
-        remaining = buffer.Length;
-    }
-    
-    var current = await stream.ReadAsync(buffer, read, remaining);
-    if (current == 0)
-    {
-        break;
-    }
-    
-    read += current;
-    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-    
-    if (lineLength > 0) 
-    {
-        ProcessLine(buffer, 0, lineLength);
-        read = 0;
+        var remaining = buffer.Length - read;
+
+        if (remaining == 0)
+        {
+            // Resize the buffer and copy all of the data
+            var newBuffer = new byte[buffer.Length * 2];
+            Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
+            buffer = newBuffer;
+            read = 0;
+            remaining = buffer.Length;
+        }
+
+        var current = await stream.ReadAsync(buffer, read, remaining);
+        if (current == 0)
+        {
+            break;
+        }
+
+        read += current;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+
+        if (lineLength > 0) 
+        {
+            ProcessLine(buffer, 0, lineLength);
+            read = 0;
+        }
     }
 }
 ```
@@ -81,149 +89,208 @@ while (true)
 This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 4KiB buffer size.
 
 ```C#
-var socket = new Socket(...);
-var stream = new NetworkStream(socket);
-var buffers = new List<ArraySegment<byte>>();
-byte[] buffer = new byte[4096];
-var read = 0;
-while (true)
+async Task AcceptAsync(Socket socket)
 {
-    var remaining = buffer.Length - read;
-    
-    if (remaining == 0)
+    var stream = new NetworkStream(socket);
+    var buffers = new List<ArraySegment<byte>>();
+    byte[] buffer = new byte[4096];
+    var read = 0;
+    while (true)
     {
-        // This buffer is full so add it to the list
-        buffers.Add(new ArraySegment<byte>(buffer));
-        buffer = new byte[4096];
-        read = 0;
-        remaining = buffer.Length;
-    }
-    
-    var current = await stream.ReadAsync(buffer, read, remaining);
-    if (current == 0)
-    {
-        break;
-    }
-    
-    read += current;
-    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-    
-    if (lineLength > 0) 
-    {
-        // Add the buffer to the list of buffers
-        buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+        var remaining = buffer.Length - read;
 
-        ProcessLine(buffers);
-        
-        buffers.Clear();
+        if (remaining == 0)
+        {
+            // This buffer is full so add it to the list
+            buffers.Add(new ArraySegment<byte>(buffer));
+            buffer = new byte[4096];
+            read = 0;
+            remaining = buffer.Length;
+        }
+
+        var current = await stream.ReadAsync(buffer, read, remaining);
+        if (current == 0)
+        {
+            break;
+        }
+
+        read += current;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+
+        if (lineLength > 0) 
+        {
+            // Add the buffer to the list of buffers
+            buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+
+            ProcessLine(buffers);
+
+            buffers.Clear();
+        }
     }
 }
 ```
 
-This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. 
+This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, ProcessLine now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle either a single/multiple buffer segments.
 
-Now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0:
+There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0 to avoid repeated buffer allocations as we're parse more lines from the client:
 
 ```C#
-var socket = new Socket(...);
-var stream = new NetworkStream(socket);
-var buffers = new List<ArraySegment<byte>>();
-byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
-var read = 0;
-while (true)
+async Task AcceptAsync(Socket socket)
 {
-    var remaining = buffer.Length - read;
-    
-    if (remaining == 0)
+    var stream = new NetworkStream(socket);
+    var buffers = new List<ArraySegment<byte>>();
+    byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
+    var read = 0;
+    while (true)
     {
-        // This buffer is full so add it to the list
-        buffers.Add(new ArraySegment<byte>(buffer));
-        buffer = ArrayPool<byte>.Shared.Rent(4096);
-        read = 0;
-        remaining = buffer.Length;
-    }
-    
-    var current = await stream.ReadAsync(buffer, read, remaining);
-    if (current == 0)
-    {
-        break;
-    }
-    
-    read += current;
-    var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-    
-    
-    if (lineLength > 0) 
-    {
-        // Add the buffer to the list of buffers
-        buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+        var remaining = buffer.Length - read;
 
-        ProcessLine(buffers);
-        
-        // Return to the array pool so we don't leak memory
-        foreach (var buffer buffers) 
+        if (remaining == 0)
         {
-            ArrayPool<byte>.Shared.Return(buffer.Array);
+            // This buffer is full so add it to the list
+            buffers.Add(new ArraySegment<byte>(buffer));
+            buffer = ArrayPool<byte>.Shared.Rent(4096);
+            read = 0;
+            remaining = buffer.Length;
         }
-        
-        buffers.Clear();
+
+        var current = await stream.ReadAsync(buffer, read, remaining);
+        if (current == 0)
+        {
+            break;
+        }
+
+        read += current;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+
+        if (lineLength > 0) 
+        {
+            // Add the buffer to the list of buffers
+            buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+
+            ProcessLine(buffers);
+
+            // Return to the array pool so we don't leak memory
+            foreach (var buffer buffers) 
+            {
+                ArrayPool<byte>.Shared.Return(buffer.Array);
+            }
+
+            buffers.Clear();
+        }
     }
 }
 ```
 
-With `System.IO.Pipelines` there is a writer and a reader. The `Socket` is the writer and the code processing the lines is the reader.
+So far our server now handles, partial messages and it uses pooled memory to reduce overall memory consumption. We can improve on this further by decoupling the reading and parsing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. 
+
 
 ```C#
-var pipe = new Pipe();
-var socket = new Socket(...);
-Task writing = ReadFromSocket(socket, pipe.Writer);
-Task reading = ReadFromPipe(pipe.Reader);
-
-async Task ReadFromSocket(Socket socket, PipeWriter writer)
+async Task AcceptAsync(Socket socket)
 {
+    var stream = new NetworkStream(socket);
+    var buffers = new List<ArraySegment<byte>>();
+    byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
+    var read = 0;
     while (true)
     {
-        Memory<byte> memory = writer.GetMemory();
-        int read = await socket.ReceiveAsync(memory, SocketFlags.None);
-        if (read == 0)
+        var remaining = buffer.Length - read;
+
+        if (remaining == 0)
+        {
+            // This buffer is full so add it to the list
+            buffers.Add(new ArraySegment<byte>(buffer));
+            buffer = ArrayPool<byte>.Shared.Rent(4096);
+            read = 0;
+            remaining = buffer.Length;
+        }
+
+        var current = await stream.ReadAsync(buffer, read, remaining);
+        if (current == 0)
         {
             break;
         }
-        writer.Advance(read);
-        await writer.FlushAync();
+
+        read += current;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+
+        if (lineLength > 0) 
+        {
+            // Add the buffer to the list of buffers
+            buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+
+            ProcessLine(buffers);
+
+            // Return to the array pool so we don't leak memory
+            foreach (var buffer buffers) 
+            {
+                ArrayPool<byte>.Shared.Return(buffer.Array);
+            }
+
+            buffers.Clear();
+        }
     }
-    writer.Complete();
 }
 
-async Task ReadFromPipe(PipeReader reader)
+async Task Parsing()
 {
-    while (true)
+}
+```
+
+Let's take a look at what this example looks like with pipelines.
+
+```C#
+async Task AcceptAsync(Socket socket)
+{
+    var pipe = new Pipe();
+    Task writing = ReadFromSocket(socket, pipe.Writer);
+    Task reading = ReadFromPipe(pipe.Reader);
+
+    async Task ReadFromSocket(Socket socket, PipeWriter writer)
     {
-        ReadResult result = await reader.ReadAsync();
-
-        ReadOnlySequence<byte> buffer = result.Buffer;
-        SequencePosition? position = buffer.PositionOf((byte)'\n');
-
-        if (position != null)
+        while (true)
         {
-            ProcessLine(buffer.Slice(0, position.Value));
-            buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+            Memory<byte> memory = writer.GetMemory();
+            int read = await socket.ReceiveAsync(memory, SocketFlags.None);
+            if (read == 0)
+            {
+                break;
+            }
+            writer.Advance(read);
+            await writer.FlushAync();
         }
-
-        reader.AdvanceTo(buffer.Start, buffer.End);
-        
-        if (result.IsCompleted)
-        {
-            break;
-        }
+        writer.Complete();
     }
 
-    reader.Complete();
+    async Task ReadFromPipe(PipeReader reader)
+    {
+        while (true)
+        {
+            ReadResult result = await reader.ReadAsync();
+
+            ReadOnlySequence<byte> buffer = result.Buffer;
+            SequencePosition? position = buffer.PositionOf((byte)'\n');
+
+            if (position != null)
+            {
+                ProcessLine(buffer.Slice(0, position.Value));
+                buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+            }
+
+            reader.AdvanceTo(buffer.Start, buffer.End);
+
+            if (result.IsCompleted)
+            {
+                break;
+            }
+        }
+
+        reader.Complete();
+    }
+
+    await reading;
+    await writing;
 }
-
-
-await reading;
-await writing;
 ```
 
 The pipelines version of our line reader has 2 loops:
