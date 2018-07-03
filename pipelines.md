@@ -130,11 +130,14 @@ async Task AcceptAsync(Socket socket)
 
 This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, ProcessLine now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle either a single/multiple buffer segments.
 
-There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0 to avoid repeated buffer allocations as we're parse more lines from the client:
+There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0 to avoid repeated buffer allocations as we're parse more lines from the client. We also probably don't want to read a single byte from the buffer as that would result in more calls into the operating system.
 
 ```C#
 async Task AcceptAsync(Socket socket)
 {
+    // We want at least this much room left in the buffer for a call to ReadAsync
+    const int minimumBufferSize = 1024;
+    
     var stream = new NetworkStream(socket);
     var buffers = new List<ArraySegment<byte>>();
     byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
@@ -143,10 +146,9 @@ async Task AcceptAsync(Socket socket)
     {
         var remaining = buffer.Length - read;
 
-        if (remaining == 0)
+        if (remaining < minimumBufferSize)
         {
-            // This buffer is full so add it to the list
-            buffers.Add(new ArraySegment<byte>(buffer));
+            buffers.Add(new ArraySegment<byte>(buffer, 0, read));
             buffer = ArrayPool<byte>.Shared.Rent(4096);
             read = 0;
             remaining = buffer.Length;
@@ -163,12 +165,10 @@ async Task AcceptAsync(Socket socket)
 
         if (lineLength > 0) 
         {
-            // Add the buffer to the list of buffers
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
             ProcessLine(buffers);
 
-            // Return to the array pool so we don't leak memory
             foreach (var buffer buffers) 
             {
                 ArrayPool<byte>.Shared.Return(buffer.Array);
