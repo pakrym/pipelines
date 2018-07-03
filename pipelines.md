@@ -190,13 +190,12 @@ Our server now handles partial messages, and it uses pooled memory to reduce ove
 
 
 ```C#
-
 class BufferSegment
 {
-   public byte[] Buffer { get; set; }
-   public int Length { get; set; }
-   public bool Full { get; set; }
-   public int Remaining => Buffer.Length - Length;
+    public byte[] Buffer { get; set; }
+    public int Length { get; set; }
+    public bool Full { get; set; }
+    public int Remaining => Buffer.Length - Length;
 }
 
 async Task AcceptAsync(Socket socket)
@@ -205,73 +204,66 @@ async Task AcceptAsync(Socket socket)
     var queue = new ConcurrentQueue<BufferSegment>();
     var reading = ReadFromSocketAsync(socket, queue, semaphore);
     var writing = ReadFromQueueAsync(queue, semaphore);
-    
-    async Task ReadFromSocketAsync(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
+
+    async Task ReadFromSocketAsync(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim signal)
     {
         const int minimumBufferSize = 512;
-        
+
         var stream = new NetworkStream(s);
-        var segment = new BufferSegment 
+        var segment = new BufferSegment
         {
-            Buffer = ArrayPool<byte>.Shared.Rent(1024);
+            Buffer = ArrayPool<byte>.Shared.Rent(1024)
         };
-        
+
         buffers.Enqueue(segment);
-        
+
         while (true)
         {
             if (segment.Remaining < minimumBufferSize)
             {
                 segment.Full = true;
-                segment = new BufferSegment 
+                segment = new BufferSegment
                 {
-                    Buffer = ArrayPool<byte>.Shared.Rent(1024);
+                    Buffer = ArrayPool<byte>.Shared.Rent(1024)
                 };
-                
+
                 buffers.Enqueue(segment);
             }
 
+
             var current = await stream.ReadAsync(segment.Buffer, segment.Length, segment.Remaining);
-            
+
             if (current == 0)
             {
                 break;
             }
 
             segment.Length += current;
-            semaphore.Release();
+            signal.Release();
         }
         
-        semaphore.Release();
+        signal.Release();
     }
-    
-    async Task ReadFromQueueAsync(ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
-    {      
+
+
+    async Task ReadFromQueueAsync(ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim signal)
+    {
         while (true)
         {
-            await semaphore.WaitAsync();
-            
-            for (var i = 0; i < buffers.Count; ++i)
+            await signal.WaitAsync();
+
+            foreach (var segment in buffers)
             {
-                var segment = buffers[i];
                 var lineLength = Array.IndexOf(segment.Buffer, (byte)'\n', 0, segment.Length);
 
                 if (lineLength >= 0)
                 {
-                    ProcessLine(buffers, i, lineLength);
-
-                    foreach (var segment in buffers)
-                    {
-                        if (segment.Full)
-                        {
-                            ArrayPool<byte>.Shared.Return(segment.Buffer);
-                        }
-                    }
+                    ProcessLine(buffers, segment, lineLength);
                 }
             }
         }
     }
-    
+
     await reading;
     await writing;
 }
