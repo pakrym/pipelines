@@ -11,13 +11,11 @@ code you would write in .NET today looks something like this:
 var socket = new Socket(...);
 var stream = new NetworkStream(socket);
 byte[] buffer = new byte[4096];
-var read = await stream.ReadAsync(buffer, 0, buffer.Length);
-ProcessLine(buffer, 0, read);
+await stream.ReadAsync(buffer, 0, buffer.Length);
+ProcessLine(buffer);
 ```
 
-This code might work when testing locally but it's broken in general because the entire message (end of line) may not been received in a single call to `ReadAsync`. 
-
-We need to buffer the incoming data until we have found a new line.
+This code might work when testing locally but it's broken in general because the entire message (end of line) may not been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. This is a common mistake when using `Stream` today. To make this work, we need to buffer the incoming data until we have found a new line.
 
 ```C#
 var socket = new Socket(...);
@@ -34,10 +32,10 @@ while (read < buffer.Length)
     read += current;
     var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
     
-    
     if (lineLength > 0)
     {
         ProcessLine(buffer, 0, lineLength);
+        read = 0;
     }
 }
 ```
@@ -75,11 +73,12 @@ while (true)
     if (lineLength > 0) 
     {
         ProcessLine(buffer, 0, lineLength);
+        read = 0;
     }
 }
 ```
 
-The resizing causes extra allocations and copies. To avoid this, we can store a list of buffers instead.
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 4KiB buffer size.
 
 ```C#
 var socket = new Socket(...);
@@ -115,9 +114,13 @@ while (true)
         buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
         ProcessLine(buffers);
+        
+        buffers.Clear();
     }
 }
 ```
+
+This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. 
 
 Now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0:
 
@@ -156,12 +159,14 @@ while (true)
         buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
         ProcessLine(buffers);
-    }
-
-    // Return to the array pool so we don't leak memory
-    foreach (var buffer buffers) 
-    {
-        ArrayPool<byte>.Shared.Return(buffer.Array);
+        
+        // Return to the array pool so we don't leak memory
+        foreach (var buffer buffers) 
+        {
+            ArrayPool<byte>.Shared.Return(buffer.Array);
+        }
+        
+        buffers.Clear();
     }
 }
 ```
