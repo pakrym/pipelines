@@ -4,7 +4,7 @@
 
 System.IO.Pipelines is a new library that is designed for doing high performance IO in .NET. It's new in .NET Core 2.1 and is a netstandard library that works on all .NET platforms. 
 
-Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
+What problem does it solve? Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
 code you would write in .NET today looks something like this:
 
 ```C#
