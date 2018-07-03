@@ -22,7 +22,6 @@ This code might work when testing locally but it's broken in general because the
 ```C#
 async Task AcceptAsync(Socket socket)
 {
-    var socket = new Socket(...);
     var stream = new NetworkStream(socket);
     byte[] buffer = new byte[4096];
     var read = 0;
