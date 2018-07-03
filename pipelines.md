@@ -180,58 +180,84 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-So far our server now handles, partial messages and it uses pooled memory to reduce overall memory consumption. We can improve on this further by decoupling the reading and parsing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. 
+Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption. Now we need to tackle the throughput. A common pattern used to increase the througput is to decouple the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data and should improve the overall throughput of the server. This introduces a couple problems though:
+- We need 2 loops, one that reads from the socket and one that processing buffers and performs the parsing logic.
+- We need a way to signal the reading loop when data becomes available
+- Memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
+- We need to decide what happens if the loop reading from the socket is "too fast", we might end up buffering too much if the parsing logic is slow.
 
 
 ```C#
 async Task AcceptAsync(Socket socket)
 {
-    var stream = new NetworkStream(socket);
-    var buffers = new List<ArraySegment<byte>>();
-    byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
-    var read = 0;
-    while (true)
+    var semaphore = new SemaphoreSlim(1, 1);
+    var queue = new ConcurrentQueue<ArraySegment<byte>>();
+    var reading = ReadFromSocket(socket, queue, semaphore);
+    var writing = ReadFromQueue(queue, semaphore);
+    
+    async Task ReadFromSocket(Socket s, ConcurrentQueue<ArraySegment<byte>> queue, SemaphoreSlim semaphore)
     {
-        var remaining = buffer.Length - read;
-
-        if (remaining == 0)
+        const int minimumBufferSize = 1024;
+        
+        var stream = new NetworkStream(s);
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
+        var read = 0;
+        while (true)
         {
-            // This buffer is full so add it to the list
-            buffers.Add(new ArraySegment<byte>(buffer));
-            buffer = ArrayPool<byte>.Shared.Rent(4096);
-            read = 0;
-            remaining = buffer.Length;
-        }
+            var remaining = buffer.Length - read;
 
-        var current = await stream.ReadAsync(buffer, read, remaining);
-        if (current == 0)
-        {
-            break;
-        }
-
-        read += current;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
-
-        if (lineLength > 0) 
-        {
-            // Add the buffer to the list of buffers
-            buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
-
-            ProcessLine(buffers);
-
-            // Return to the array pool so we don't leak memory
-            foreach (var buffer buffers) 
-            {
-                ArrayPool<byte>.Shared.Return(buffer.Array);
+            if (remaining < minimumBufferSize)
+            {                
+                buffer = ArrayPool<byte>.Shared.Rent(4096);
+                read = 0;
+                remaining = buffer.Length;
             }
 
-            buffers.Clear();
+            var current = await stream.ReadAsync(buffer, read, remaining);
+            if (current == 0)
+            {
+                break;
+            }
+
+            read += current;
         }
     }
-}
+    
+    async Task ReadFromQueue(ConcurrentQueue<ArraySegment<byte>> queue, SemaphoreSlim semaphore)
+    {
+        var buffers = new List<ArraySegment<byte>>();
+        
+        while (true)
+        {
+            await semaphore.WaitAsync();
 
-async Task Parsing()
-{
+            while (queue.TryDequeue(out var buffer))
+            {
+                var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+
+                if (lineLength > 0) 
+                {
+                    buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+
+                    ProcessLine(buffers);
+
+                    foreach (var buffer buffers) 
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer.Array);
+                    }
+
+                    buffers.Clear();
+                }
+                else
+                {
+                    buffers.Add(buffer);
+                }
+            }
+        }
+    }
+    
+    await reading;
+    await writing;
 }
 ```
 
@@ -291,9 +317,9 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-The pipelines version of our line reader has 2 loops:
-- One loop reads from the Socket and writes into the PipeWriter
-- The other loop reads from the PipeReader and parses incoming lines
+The pipelines version of our line reader has the same 2 loops:
+- One loop reads from the Socket and writes into the PipeWriter.
+- The other loop reads from the PipeReader and parses incoming lines.
 
 Unlike, the `Stream` version of the example, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. All buffer management is delegated to the `PipeReader`/`PipeWriter` implementations. This makes it easier for consuming code to focus solely on the business logic instead of complex buffer management. In the first loop, we first call `PipeWriter.GetMemory()` to get some memory from the underlying writer then we call `PipeWriter.Advance(int)` to tell the `PipeWriter` how much data we actually wrote to the buffer. We then call `PipeWriter.FlushAsync()` to make the data available to the `PipeReader`.
 
