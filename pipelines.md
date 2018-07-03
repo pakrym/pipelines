@@ -15,7 +15,7 @@ code you would write in .NET before pipelines looks something like this:
 async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
-    var buffer = new byte[4096];
+    var buffer = new byte[1024];
     await stream.ReadAsync(buffer, 0, buffer.Length);
     ProcessLine(buffer);
 }
@@ -27,7 +27,7 @@ This code might work when testing locally but it's broken in general because the
 async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
-    var buffer = new byte[4096];
+    var buffer = new byte[1024];
     var read = 0;
     while (read < buffer.Length)
     {
@@ -48,13 +48,13 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Once again, this might work in local testing but it's possible that the line is bigger than 4KiB (4096 bytes). So we need to resize the input buffer until we have found a new line.
+Once again, this might work in local testing but it's possible that the line is bigger than 1KiB (1024 bytes). So we need to resize the input buffer until we have found a new line.
 
 ```C#
 async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
-    var buffer = new byte[4096];
+    var buffer = new byte[1024];
     var read = 0;
     while (true)
     {
@@ -94,7 +94,7 @@ async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
     var buffers = new List<ArraySegment<byte>>();
-    var buffer = new byte[4096];
+    var buffer = new byte[1024];
     var read = 0;
     while (true)
     {
@@ -103,7 +103,7 @@ async Task AcceptAsync(Socket socket)
         if (remaining == 0)
         {
             buffers.Add(new ArraySegment<byte>(buffer));
-            buffer = new byte[4096];
+            buffer = new byte[1024];
             read = 0;
             remaining = buffer.Length;
         }
@@ -136,11 +136,11 @@ There are a few more optimizations that we need to make before we call this serv
 ```C#
 async Task AcceptAsync(Socket socket)
 {
-    const int minimumBufferSize = 1024;
+    const int minimumBufferSize = 512;
     
     var stream = new NetworkStream(socket);
     var buffers = new List<ArraySegment<byte>>();
-    byte[] buffer = ArrayPool<byte>.Shared.Rent(4096);
+    byte[] buffer = ArrayPool<byte>.Shared.Rent(1024);
     var read = 0;
     while (true)
     {
@@ -149,7 +149,7 @@ async Task AcceptAsync(Socket socket)
         if (remaining < minimumBufferSize)
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, read));
-            buffer = ArrayPool<byte>.Shared.Rent(4096);
+            buffer = ArrayPool<byte>.Shared.Rent(1024);
             read = 0;
             remaining = buffer.Length;
         }
@@ -208,12 +208,12 @@ async Task AcceptAsync(Socket socket)
     
     async Task ReadFromSocketAsync(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
     {
-        const int minimumBufferSize = 1024;
+        const int minimumBufferSize = 512;
         
         var stream = new NetworkStream(s);
         var segment = new BufferSegment 
         {
-            Buffer = ArrayPool<byte>.Shared.Rent(4096);
+            Buffer = ArrayPool<byte>.Shared.Rent(1024);
         };
         
         buffers.Enqueue(segment);
@@ -225,7 +225,7 @@ async Task AcceptAsync(Socket socket)
                 segment.Full = true;
                 segment = new BufferSegment 
                 {
-                    Buffer = ArrayPool<byte>.Shared.Rent(4096);
+                    Buffer = ArrayPool<byte>.Shared.Rent(1024);
                 };
                 
                 buffers.Enqueue(segment);
@@ -290,7 +290,7 @@ async Task AcceptAsync(Socket socket)
 
     async Task ReadFromSocketAsync(Socket socket, PipeWriter writer)
     {
-        const int minimumBufferSize = 1024;
+        const int minimumBufferSize = 512;
         
         while (true)
         {
