@@ -206,7 +206,7 @@ async Task AcceptAsync(Socket socket)
     var reading = ReadFromSocket(socket, queue, semaphore);
     var writing = ReadFromQueue(queue, semaphore);
     
-    async Task ReadFromSocket(Socket s, List<BufferSegment> buffers, SemaphoreSlim semaphore)
+    async Task ReadFromSocket(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
     {
         const int minimumBufferSize = 1024;
         
@@ -216,10 +216,7 @@ async Task AcceptAsync(Socket socket)
             Buffer = ArrayPool<byte>.Shared.Rent(4096);
         };
         
-        lock (buffers)
-        {
-            buffers.Add(segment);
-        }
+        buffers.Enqueue(segment);
         
         while (true)
         {
@@ -231,10 +228,7 @@ async Task AcceptAsync(Socket socket)
                     Buffer = ArrayPool<byte>.Shared.Rent(4096);
                 };
                 
-                lock (buffers)
-                {
-                    buffers.Add(segment);
-                }
+                buffers.Enqueue(segment);
             }
 
             var current = await stream.ReadAsync(segment.Buffer, segment.Length, segment.Remaining);
