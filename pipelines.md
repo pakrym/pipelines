@@ -195,6 +195,7 @@ class BufferSegment
 {
    public byte[] Buffer { get; set; }
    public int Length { get; set; }
+   public bool Full { get; set; }
    public int Remaining => Buffer.Length - Length;
 }
 
@@ -205,7 +206,7 @@ async Task AcceptAsync(Socket socket)
     var reading = ReadFromSocket(socket, queue, semaphore);
     var writing = ReadFromQueue(queue, semaphore);
     
-    async Task ReadFromSocket(Socket s, ConcurrentQueue<BufferSegment> queue, SemaphoreSlim semaphore)
+    async Task ReadFromSocket(Socket s, List<BufferSegment> buffers, SemaphoreSlim semaphore)
     {
         const int minimumBufferSize = 1024;
         
@@ -215,17 +216,25 @@ async Task AcceptAsync(Socket socket)
             Buffer = ArrayPool<byte>.Shared.Rent(4096);
         };
         
-        queue.Enqueue(segment);
+        lock (buffers)
+        {
+            buffers.Add(segment);
+        }
         
         while (true)
         {
             if (segment.Remaining < minimumBufferSize)
             {
-                queue.Enqueue(segment);
+                segment.Full = true;
                 segment = new BufferSegment 
                 {
                     Buffer = ArrayPool<byte>.Shared.Rent(4096);
                 };
+                
+                lock (buffers)
+                {
+                    buffers.Add(segment);
+                }
             }
 
             var current = await stream.ReadAsync(segment.Buffer, segment.Length, segment.Remaining);
@@ -240,24 +249,28 @@ async Task AcceptAsync(Socket socket)
         }
     }
     
-    async Task ReadFromQueue(ConcurrentQueue<BufferSegment> queue, SemaphoreSlim semaphore)
+    async Task ReadFromQueue(List<BufferSegment> buffers, SemaphoreSlim semaphore)
     {      
         // This is still broken...
         while (true)
         {
             await semaphore.WaitAsync();
-
-            foreach (var segment in queue)
+            
+            for (var i = 0; i < buffers.Count; ++i)
             {
+                var segment = buffers[i];
                 var lineLength = Array.IndexOf(segment.Buffer, (byte)'\n', 0, segment.Length);
 
                 if (lineLength > 0)
                 {
-                    ProcessLine(buffers);
+                    ProcessLine(buffers, 0, i, lineLength);
 
-                    foreach (var buffer buffers) 
+                    foreach (var segment in buffers)
                     {
-                        ArrayPool<byte>.Shared.Return(buffer.Array);
+                        if (segment.Full)
+                        {
+                            ArrayPool<byte>.Shared.Return(segment.Buffer);
+                        }
                     }
                 }
             }
@@ -342,9 +355,7 @@ In the second loop, we're consuming the buffers written by the `PipeWriter` whic
 
 At the end of each of the loops, we complete both the reader and the writer.
 
-
 ### ReadOnlySequence<T>
 
 Both `Span<T>` and `Memory<T>` provide functionality for contiguous buffers such as arrays and strings. System.Memory contains a new sliceable type called `ReadOnlySequence<T>` within the System.Buffers namespace that offers support for discontiguous buffers represented by a linked list of `ReadOnlyMemory<T>` nodes. 
 
-You can read more about it on the https://www.codemag.com/Article/1807051/Introducing-.NET-Core-2.1-Flagship-Types-Span-T-and-Memory-T
