@@ -355,6 +355,11 @@ In the second loop, we're consuming the buffers written by the `PipeWriter` whic
 
 At the end of each of the loops, we complete both the reader and the writer.
 
+Other benefits that arise from the `PipeReader` patterns:
+- Because the buffer management is controlled by the `PipeReader` it makes writing a decorating `PipeReader` mostly buffer free as well. The buffers from the underlying `PipeReader` flow all the way out to the reader.
+- Some underlying systems support a "bufferless wait", that is, we don't ever need to allocate a buffer until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
+- Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
+
 ### ReadOnlySequence<T>
 
 Both `Span<T>` and `Memory<T>` provide functionality for contiguous buffers such as arrays and strings. System.Memory contains a new sliceable type called `ReadOnlySequence<T>` within the System.Buffers namespace that offers support for discontiguous buffers represented by a linked list of `ReadOnlyMemory<T>` nodes. 
