@@ -183,8 +183,10 @@ async Task AcceptAsync(Socket socket)
 Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption. Now we need to tackle the throughput. A common pattern used to increase the throughput is to decouple the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
 - We need 2 loops, one that reads from the socket and one that processing buffers and performs the parsing logic.
 - We need a way to signal the parsing logic when data becomes available.
-- Memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
 - We need to decide what happens if the loop reading from the socket is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up.
+- We need to make sure things are thread safe. We're not sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
+- Memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
+- We need to be extremely careful with how we return buffers after the parsing logic is done with them. If we're not careful, it's possible that we return a buffer that's still being written into by the reading logic.
 
 
 ```C#
@@ -289,7 +291,12 @@ async Task AcceptAsync(Socket socket)
                 break;
             }
             writer.Advance(read);
-            await writer.FlushAync();
+            FlushResult result = await writer.FlushAync();
+            
+            if (result.IsCompleted) 
+            {
+                break;
+            }
         }
         writer.Complete();
     }
@@ -332,6 +339,8 @@ The pipelines version of our line reader has the same 2 loops:
 Unlike, the `Stream` version of the example, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. All buffer management is delegated to the `PipeReader`/`PipeWriter` implementations. This makes it easier for consuming code to focus solely on the business logic instead of complex buffer management. In the first loop, we first call `PipeWriter.GetMemory(int)` to get some memory from the underlying writer then we call `PipeWriter.Advance(int)` to tell the `PipeWriter` how much data we actually wrote to the buffer. We then call `PipeWriter.FlushAsync()` to make the data available to the `PipeReader`.
 
 In the second loop, we're consuming the buffers written by the `PipeWriter` which ultimately comes from the `Socket`. When the call to `PipeReader.ReadAsync()` returns, we get a `ReadResult` which contains 2 important pieces of information, the data that was read in the form of `ReadOnlySequence<byte>` and a bool `IsCompleted` that lets the reader know if more data would be written into the pipe. After finding the line end delimeter and parsing the line, we slice the buffer to skip what we've already processed and then we call `PipeReader.AdvanceTo` to tell the `PipeReader` how much data we have both consumed and observed. `PipeReader.AdvanceTo` does a couple of things, it signals to the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for e.g returned to the underlying buffer pool) and it allows the reader to identify the how much of the buffer was examined. This is important for performance when buffers can be partially consumed as  it allows the reader to say "don't wake me up again until there's more data available".
+
+At the end of each of the loops, we complete both the reader and the writer.
 
 
 ### ReadOnlySequence<T>
