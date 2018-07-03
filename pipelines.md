@@ -202,8 +202,8 @@ async Task AcceptAsync(Socket socket)
 {
     var semaphore = new SemaphoreSlim(1, 1);
     var queue = new ConcurrentQueue<BufferSegment>();
-    var reading = ReadFromSocketAsync(socket, queue, semaphore);
-    var writing = ReadFromQueueAsync(queue, semaphore);
+    var reading = ReadFromSocketAsync();
+    var writing = ReadFromQueueAsync();
 
     async Task ReadFromSocketAsync()
     {
