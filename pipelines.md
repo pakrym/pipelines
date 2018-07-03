@@ -62,7 +62,6 @@ async Task AcceptAsync(Socket socket)
 
         if (remaining == 0)
         {
-            // Resize the buffer and copy all of the data
             var newBuffer = new byte[buffer.Length * 2];
             Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
             buffer = newBuffer;
@@ -103,7 +102,6 @@ async Task AcceptAsync(Socket socket)
 
         if (remaining == 0)
         {
-            // This buffer is full so add it to the list
             buffers.Add(new ArraySegment<byte>(buffer));
             buffer = new byte[4096];
             read = 0;
@@ -121,7 +119,6 @@ async Task AcceptAsync(Socket socket)
 
         if (lineLength > 0) 
         {
-            // Add the buffer to the list of buffers
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
             ProcessLine(buffers);
