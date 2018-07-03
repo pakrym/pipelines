@@ -256,9 +256,9 @@ async Task AcceptAsync(Socket socket)
                 var segment = buffers[i];
                 var lineLength = Array.IndexOf(segment.Buffer, (byte)'\n', 0, segment.Length);
 
-                if (lineLength > 0)
+                if (lineLength >= 0)
                 {
-                    ProcessLine(buffers, 0, i, lineLength);
+                    ProcessLine(buffers, i, lineLength);
 
                     foreach (var segment in buffers)
                     {
