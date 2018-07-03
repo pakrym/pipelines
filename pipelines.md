@@ -205,17 +205,17 @@ async Task AcceptAsync(Socket socket)
     var reading = ReadFromSocketAsync(socket, queue, semaphore);
     var writing = ReadFromQueueAsync(queue, semaphore);
 
-    async Task ReadFromSocketAsync(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim signal)
+    async Task ReadFromSocketAsync()
     {
         const int minimumBufferSize = 512;
 
-        var stream = new NetworkStream(s);
+        var stream = new NetworkStream(socket);
         var segment = new BufferSegment
         {
             Buffer = ArrayPool<byte>.Shared.Rent(1024)
         };
 
-        buffers.Enqueue(segment);
+        queue.Enqueue(segment);
 
         while (true)
         {
@@ -227,7 +227,7 @@ async Task AcceptAsync(Socket socket)
                     Buffer = ArrayPool<byte>.Shared.Rent(1024)
                 };
 
-                buffers.Enqueue(segment);
+                queue.Enqueue(segment);
             }
 
 
@@ -239,20 +239,20 @@ async Task AcceptAsync(Socket socket)
             }
 
             segment.Length += current;
-            signal.Release();
+            semaphore.Release();
         }
         
-        signal.Release();
+        semaphore.Release();
     }
 
 
-    async Task ReadFromQueueAsync(ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim signal)
+    async Task ReadFromQueueAsync()
     {
         while (true)
         {
-            await signal.WaitAsync();
+            await semaphore.WaitAsync();
 
-            foreach (var segment in buffers)
+            foreach (var segment in queue)
             {
                 var lineLength = Array.IndexOf(segment.Buffer, (byte)'\n', 0, segment.Length);
 
@@ -279,17 +279,17 @@ Let's take a look at what this example looks like with System.IO.Pipelines.
 async Task AcceptAsync(Socket socket)
 {
     var pipe = new Pipe();
-    Task writing = ReadFromSocketAsync(socket, pipe.Writer);
+    Task writing = ReadFromSocketAsync(pipe.Writer);
     Task reading = ReadFromPipeAsync(pipe.Reader);
 
-    async Task ReadFromSocketAsync(Socket s, PipeWriter writer)
+    async Task ReadFromSocketAsync(PipeWriter writer)
     {
         const int minimumBufferSize = 512;
         
         while (true)
         {
             Memory<byte> memory = writer.GetMemory(minimumBufferSize);
-            int read = await s.ReceiveAsync(memory, SocketFlags.None);
+            int read = await socket.ReceiveAsync(memory, SocketFlags.None);
             if (read == 0)
             {
                 break;
