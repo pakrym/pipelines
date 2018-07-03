@@ -11,7 +11,7 @@ code you would write in .NET today looks something like this:
 async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
-    byte[] buffer = new byte[4096];
+    var buffer = new byte[4096];
     await stream.ReadAsync(buffer, 0, buffer.Length);
     ProcessLine(buffer);
 }
@@ -23,7 +23,7 @@ This code might work when testing locally but it's broken in general because the
 async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
-    byte[] buffer = new byte[4096];
+    var buffer = new byte[4096];
     var read = 0;
     while (read < buffer.Length)
     {
@@ -50,7 +50,7 @@ Once again, this might work in local testing but it's possible that the line is 
 async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
-    byte[] buffer = new byte[4096];
+    var buffer = new byte[4096];
     var read = 0;
     while (true)
     {
@@ -91,7 +91,7 @@ async Task AcceptAsync(Socket socket)
 {
     var stream = new NetworkStream(socket);
     var buffers = new List<ArraySegment<byte>>();
-    byte[] buffer = new byte[4096];
+    var buffer = new byte[4096];
     var read = 0;
     while (true)
     {
