@@ -4,8 +4,7 @@
 
 System.IO.Pipelines is a new library that is designed for doing high performance IO in .NET. It's new in .NET Core 2.1 and is a netstandard library that works on all .NET platforms. 
 
-Pipelines was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. It started out as an implementation detail inside of Kestrel in .NET Core 1.1 and then progressed into corefxlab as a prototype in .NET Core 2.0. We got some great feedback from early adopters and ended up shipping it as an internal API in .NET Core 2.0 inside of Kestrel. In 2.1 we went back to work to make it a first class BCL API (System.IO.Pipelines) for the masses. It currently powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components.
-
+Pipelines was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. What started as an implementation detail inside of Kestrel progressed into a re-usable API that shipped in 2.1 as a first class BCL API (System.IO.Pipelines) available for all .NET developers. Today Pipelines powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components from the .NET community. 
 
 ## What problem does it solve? 
 
@@ -135,7 +134,7 @@ async Task AcceptAsync(Socket socket)
 
 This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, ProcessLine now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle either a single/multiple buffer segments.
 
-There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0 to avoid repeated buffer allocations as we're parse more lines from the client. We also probably don't want to read a single byte from the buffer as that would result in more calls into the operating system.
+There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0 to avoid repeated buffer allocations as we're parse more lines from the client. We also probably don't want to pass small buffers to `ReadAsync` as that would result in more calls into the operating system.
 
 ```C#
 async Task AcceptAsync(Socket socket)
