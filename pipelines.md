@@ -204,10 +204,10 @@ async Task AcceptAsync(Socket socket)
 {
     var semaphore = new SemaphoreSlim(1, 1);
     var queue = new ConcurrentQueue<BufferSegment>();
-    var reading = ReadFromSocket(socket, queue, semaphore);
-    var writing = ReadFromQueue(queue, semaphore);
+    var reading = ReadFromSocketAsync(socket, queue, semaphore);
+    var writing = ReadFromQueueAsync(queue, semaphore);
     
-    async Task ReadFromSocket(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
+    async Task ReadFromSocketAsync(Socket s, ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
     {
         const int minimumBufferSize = 1024;
         
@@ -244,9 +244,8 @@ async Task AcceptAsync(Socket socket)
         }
     }
     
-    async Task ReadFromQueue(List<BufferSegment> buffers, SemaphoreSlim semaphore)
+    async Task ReadFromQueueAsync(List<BufferSegment> buffers, SemaphoreSlim semaphore)
     {      
-        // This is still broken...
         while (true)
         {
             await semaphore.WaitAsync();
@@ -287,10 +286,10 @@ Let's take a look at what this example looks like with System.IO.Pipelines.
 async Task AcceptAsync(Socket socket)
 {
     var pipe = new Pipe();
-    Task writing = ReadFromSocket(socket, pipe.Writer);
-    Task reading = ReadFromPipe(pipe.Reader);
+    Task writing = ReadFromSocketAsync(socket, pipe.Writer);
+    Task reading = ReadFromPipeAsync(pipe.Reader);
 
-    async Task ReadFromSocket(Socket socket, PipeWriter writer)
+    async Task ReadFromSocketAsync(Socket socket, PipeWriter writer)
     {
         const int minimumBufferSize = 1024;
         
@@ -313,7 +312,7 @@ async Task AcceptAsync(Socket socket)
         writer.Complete();
     }
 
-    async Task ReadFromPipe(PipeReader reader)
+    async Task ReadFromPipeAsync(PipeReader reader)
     {
         while (true)
         {
