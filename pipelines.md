@@ -136,7 +136,6 @@ There are a few more optimizations that we need to make before we call this serv
 ```C#
 async Task AcceptAsync(Socket socket)
 {
-    // We want at least this much room left in the buffer for a call to ReadAsync
     const int minimumBufferSize = 1024;
     
     var stream = new NetworkStream(socket);
