@@ -9,7 +9,7 @@ Pipelines was born from the work the .NET Core team did to make Kestrel one of t
 ## What problem does it solve? 
 
 Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
-code you would write in .NET today looks something like this:
+code you would write in .NET before pipelines looks something like this:
 
 ```C#
 async Task AcceptAsync(Socket socket)
