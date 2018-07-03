@@ -276,7 +276,11 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-The complexity has gone through the roof (and there are still bugs!). High performance networking usually means writing very complex code in order to eek the performance out of the system. Let's take a look at what this example looks like with System.IO.Pipelines.
+The complexity has gone through the roof (and there are still bugs!). High performance networking usually means writing very complex code in order to eek the performance out of the system.
+
+### TCP server with System.IO.Pipelines
+
+Let's take a look at what this example looks like with System.IO.Pipelines.
 
 ```C#
 async Task AcceptAsync(Socket socket)
