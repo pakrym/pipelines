@@ -87,7 +87,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 4KiB buffer size.
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size.
 
 ```C#
 async Task AcceptAsync(Socket socket)
