@@ -184,7 +184,7 @@ Our server now handles partial messages, and it uses pooled memory to reduce ove
 - We need 2 loops, one that reads from the socket and one that processes and parses the buffers.
 - We need a way to signal the parsing logic when data becomes available.
 - We need to decide what happens if the loop reading from the socket is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
-- We need to make sure things are thread safe. We're not sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
+- We need to make sure things are thread safe. We're now sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
 - Memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
 - We need to be extremely careful with how we return buffers after the parsing logic is done with them. If we're not careful, it's possible that we return a buffer that's still being written into by the reading logic.
 
