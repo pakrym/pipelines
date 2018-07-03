@@ -6,7 +6,10 @@ System.IO.Pipelines is a new library that is designed for doing high performance
 
 Pipelines was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. It started out as an implementation detail inside of Kestrel in .NET Core 1.1 and then progressed into corefxlab as a prototype in .NET Core 2.0. We got some great feedback from early adopters and ended up shipping it as an internal API in .NET Core 2.0 inside of Kestrel. In 2.1 we went back to work to make it a first class BCL API (System.IO.Pipelines) for the masses. It currently powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components.
 
-What problem does it solve? Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
+
+## What problem does it solve? 
+
+Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
 code you would write in .NET today looks something like this:
 
 ```C#
