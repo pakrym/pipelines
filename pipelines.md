@@ -182,7 +182,7 @@ async Task AcceptAsync(Socket socket)
 ```
 
 Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption. Now we need to tackle the throughput. A common pattern used to increase the throughput is to decouple the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
-- We need 2 loops, one that reads from the socket and one that processing buffers and performs the parsing logic.
+- We need 2 loops, one that reads from the socket and one that processes and parses the buffers.
 - We need a way to signal the parsing logic when data becomes available.
 - We need to decide what happens if the loop reading from the socket is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up.
 - We need to make sure things are thread safe. We're not sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
@@ -277,7 +277,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-The complexity has gone through the roof (and there are still bugs!). High performance networking usually means writing very complex code in order to eek the performance out of the system.
+The complexity has gone through the roof (and there are still bugs!). High performance networking usually means writing very complex code in order to eke out more performance from the system.
 
 ## TCP server with System.IO.Pipelines
 
