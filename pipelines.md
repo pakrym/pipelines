@@ -245,7 +245,7 @@ async Task AcceptAsync(Socket socket)
         semaphore.Release();
     }
     
-    async Task ReadFromQueueAsync(List<BufferSegment> buffers, SemaphoreSlim semaphore)
+    async Task ReadFromQueueAsync(ConcurrentQueue<BufferSegment> buffers, SemaphoreSlim semaphore)
     {      
         while (true)
         {
