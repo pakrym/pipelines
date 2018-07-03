@@ -1,6 +1,6 @@
-## System.IO.Pipelines
+# System.IO.Pipelines
 
-### What is it?
+## What is it?
 
 System.IO.Pipelines is a new library that is designed for doing high performance IO in .NET. It's new in .NET Core 2.1 and is a netstandard library that works on all .NET platforms. 
 
@@ -278,7 +278,7 @@ async Task AcceptAsync(Socket socket)
 
 The complexity has gone through the roof (and there are still bugs!). High performance networking usually means writing very complex code in order to eek the performance out of the system.
 
-### TCP server with System.IO.Pipelines
+## TCP server with System.IO.Pipelines
 
 Let's take a look at what this example looks like with System.IO.Pipelines.
 
@@ -358,11 +358,11 @@ Other benefits that arise from the `PipeReader` patterns:
 - Some underlying systems support a "bufferless wait", that is, we don't ever need to allocate a buffer until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
 - Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
 
-### History
+## History
 
 Pipelines was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. It started out as an implementation detail inside of Kestrel in .NET Core 1.1 and then progressed into corefxlab as a prototype in .NET Core 2.0. We got some great feedback from early adopters and ended up shipping it as an internal API in .NET Core 2.0 inside of Kestrel. In 2.1 we went back to work to make it a first class BCL API (System.IO.Pipelines) for the masses. It currently powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components.
 
-### ReadOnlySequence<T>
+## ReadOnlySequence<T>
 
 Both `Span<T>` and `Memory<T>` provide functionality for contiguous buffers such as arrays and strings. System.Memory contains a new sliceable type called `ReadOnlySequence<T>` within the System.Buffers namespace that offers support for discontiguous buffers represented by a linked list of `ReadOnlyMemory<T>` nodes. 
 
