@@ -78,7 +78,7 @@ async Task AcceptAsync(Socket socket)
         read += current;
         var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 
-        if (lineLength > 0) 
+        if (lineLength >= 0) 
         {
             ProcessLine(buffer, 0, lineLength);
             read = 0;
@@ -117,7 +117,7 @@ async Task AcceptAsync(Socket socket)
         read += current;
         var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 
-        if (lineLength > 0) 
+        if (lineLength >= 0) 
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
@@ -164,7 +164,7 @@ async Task AcceptAsync(Socket socket)
         read += current;
         var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 
-        if (lineLength > 0) 
+        if (lineLength >= 0) 
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
