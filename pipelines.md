@@ -240,19 +240,19 @@ async Task AcceptAsync(Socket socket)
     
     async Task ReadFromQueue(ConcurrentQueue<BufferSegment> queue, SemaphoreSlim semaphore)
     {
-        var buffers = new List<BufferSegment>();
+        var buffers = new List<ArraySegment<byte>>();
         
         while (true)
         {
             await semaphore.WaitAsync();
 
-            while (queue.TryDequeue(out var buffer))
+            while (queue.TryPeek(out var segment))
             {
-                var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+                var lineLength = Array.IndexOf(segment.Buffer, (byte)'\n', 0, segment.Length);
 
-                if (lineLength > 0) 
+                if (lineLength > 0)
                 {
-                    buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+                    buffers.Add(new ArraySegment<byte>(segment.Buffer, 0, lineLength));
 
                     ProcessLine(buffers);
 
