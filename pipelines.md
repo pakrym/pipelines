@@ -10,7 +10,6 @@ code you would write in .NET today looks something like this:
 ```C#
 async Task AcceptAsync(Socket socket)
 {
-    var socket = new Socket(...);
     var stream = new NetworkStream(socket);
     byte[] buffer = new byte[4096];
     await stream.ReadAsync(buffer, 0, buffer.Length);
@@ -46,7 +45,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Once again, this might work locally but it's possible that the line is bigger than 4 KiB (4096 bytes). So we need to resize the input buffer until we have found a new line.
+Once again, this might work in local testing but it's possible that the line is bigger than 4KiB (4096 bytes). So we need to resize the input buffer until we have found a new line.
 
 ```C#
 async Task AcceptAsync(Socket socket)
