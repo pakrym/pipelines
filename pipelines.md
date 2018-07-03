@@ -232,7 +232,6 @@ async Task AcceptAsync(Socket socket)
             }
 
             var current = await stream.ReadAsync(segment.Buffer, segment.Length, segment.Remaining);
-            semaphore.Release();
             
             if (current == 0)
             {
@@ -240,7 +239,10 @@ async Task AcceptAsync(Socket socket)
             }
 
             segment.Length += current;
+            semaphore.Release();
         }
+        
+        semaphore.Release();
     }
     
     async Task ReadFromQueueAsync(List<BufferSegment> buffers, SemaphoreSlim semaphore)
