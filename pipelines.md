@@ -282,14 +282,14 @@ async Task AcceptAsync(Socket socket)
     Task writing = ReadFromSocketAsync(socket, pipe.Writer);
     Task reading = ReadFromPipeAsync(pipe.Reader);
 
-    async Task ReadFromSocketAsync(Socket socket, PipeWriter writer)
+    async Task ReadFromSocketAsync(Socket s, PipeWriter writer)
     {
         const int minimumBufferSize = 512;
         
         while (true)
         {
             Memory<byte> memory = writer.GetMemory(minimumBufferSize);
-            int read = await socket.ReceiveAsync(memory, SocketFlags.None);
+            int read = await s.ReceiveAsync(memory, SocketFlags.None);
             if (read == 0)
             {
                 break;
@@ -353,4 +353,6 @@ At the end of each of the loops, we complete both the reader and the writer.
 - Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation.
 
 ## How do I use them?
+
+Here's an example of a .NET Core 2.1 server application that uses pipelines to handle line based messages (our example above) https://github.com/davidfowl/TcpEcho. It should run with `dotnet run` (or by running it in Visual Studio). It listens to a socket on port 8087 and writes out received messages to the console.
 
