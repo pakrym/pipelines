@@ -276,7 +276,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Let's take a look at what this example looks like with pipelines.
+The complexity has gone through the roof (and there are still bugs!). High performance networking usually means writing very complex code in order to eek the performance out of the system. Let's take a look at what this example looks like with System.IO.Pipelines.
 
 ```C#
 async Task AcceptAsync(Socket socket)
@@ -353,6 +353,10 @@ Other benefits that arise from the `PipeReader` patterns:
 - Because the buffer management is controlled by the `PipeReader` it makes writing a decorating `PipeReader` mostly buffer free as well. The buffers from the underlying `PipeReader` flow all the way out to the reader.
 - Some underlying systems support a "bufferless wait", that is, we don't ever need to allocate a buffer until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
 - Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
+
+### History
+
+Pipelines was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. It started out as an implementation detail inside of Kestrel in .NET Core 1.1 and then progressed into corefxlab as a prototype in .NET Core 2.0. We got some great feedback from early adopters and ended up shipping it as an internal API in .NET Core 2.0 inside of Kestrel. In 2.1 we went back to work to make it a first class BCL API (System.IO.Pipelines) for the masses. It currently powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components.
 
 ### ReadOnlySequence<T>
 
