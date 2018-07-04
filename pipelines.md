@@ -289,7 +289,7 @@ Usually when using async/await, continuations are called on either on thread poo
 
 The `Pipe` implementation stores a linked list of buffers and get passed between the `PipeWriter` and `PipeReader`. `PipeReader.ReadAsync` exposes a `ReadOnlySequence<T>` which is a new BCL type that represents a view over multiple segments of `ReadOnlyMemory<T>` similar to how `Span<T>` and `Memory<T>` provide a view over arrays and strings.
 
-![image](https://user-images.githubusercontent.com/95136/42292574-57a9ee00-7f88-11e8-95ae-f39cf4188d2f.png)
+![image](https://user-images.githubusercontent.com/95136/42292592-74a4028e-7f88-11e8-85f7-a6b2f925769d.png)
 
 ### Other Related types
 
