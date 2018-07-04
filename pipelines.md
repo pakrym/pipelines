@@ -287,11 +287,30 @@ Usually when using async/await, continuations are called on either on thread poo
 
 ### ReadOnlySequence\<T\>
 
-The `Pipe` implementation stores a linked list of buffers and get passed between the `PipeWriter` and `PipeReader`. `PipeReader.ReadAsync` exposes a `ReadOnlySequence<T>` which is a new BCL type that represents a view over multiple segments of `ReadOnlyMemory<T>` similar to how `Span<T>` and `Memory<T>` provide a view over arrays and strings.
+The `Pipe` implementation stores a linked list of buffers and get passed between the `PipeWriter` and `PipeReader`. `PipeReader.ReadAsync` exposes a `ReadOnlySequence<T>` which is a new BCL type that represents a view over one or more  segments of `ReadOnlyMemory<T>` similar to how `Span<T>` and `Memory<T>` provide a view over arrays and strings.
 
 ![image](https://user-images.githubusercontent.com/95136/42292592-74a4028e-7f88-11e8-85f7-a6b2f925769d.png)
 
 The `Pipe` internally maintains pointers to where the reader and writer are in the overall set of allocated data and updates them as data is written or read. The `SequencePosition` represents a single point in the overall linked list of buffers and can be used to efficiently Slice the `ReadOnlySequence<T>`.
+
+
+```C#
+string GetString(ReadOnlySequence<byte> buffer)
+{
+    if (buffer.IsSingleSegment)
+    {
+        return Encoding.UTF8.GetString(buffer.First.Span);
+    }
+    
+    return string.Create((int)buffer.Length, buffer, (span, sequence) =>
+    {
+        foreach (var segment in sequence)
+        {
+            ... // TODO: Fill this in
+        }
+    })
+}
+```
 
 ### Other Related types
 
