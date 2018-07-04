@@ -283,7 +283,7 @@ As mentioned previously, one of the challenges of de-coupling the parsing thread
 
 ### Scheduling IO
 
-Usually when using async/await, IO 
+Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. When doing IO it's very important to have fine grained control over where that IO is performed and pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. An example where this is used in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
 
 ## Related types
 
