@@ -279,7 +279,7 @@ As mentioned previously, one of the challenges of de-coupling the parsing thread
 
 ![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
 
-FlushAsync "blocks" when amount of data in Pipe crosses PauseWriterThreshold  and "unblocks" when it becomes lower then ResumeWriterThreshold. Two values are used to prevent thrashing around the limit.
+`PipeWriter.FlushAsync` "blocks" when amount of data in Pipe crosses `PauseWriterThreshold`  and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
 
 ### Scheduling IO
 
