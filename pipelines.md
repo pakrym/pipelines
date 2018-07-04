@@ -255,7 +255,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-The pipelines version of our line reader has the same 2 loops:
+The pipelines version of our line reader has 2 loops:
 - One loop reads from the `Socket` and writes into the `PipeWriter`.
 - The other loop reads from the `PipeReader` and parses incoming lines.
 
@@ -270,6 +270,28 @@ At the end of each of the loops, we complete both the reader and the writer.
 - Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
 - Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
 - Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation.
+
+## Fine grained control
+
+### Back pressure and flow control
+
+As mentioned previously, one of the challenges of de-coupling the parsing thread from the reading thread is the fact that we may end up buffering too much data if the parsing thread can't keep up with the reading thread. To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before to read before the writing can continue.
+
+![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
+
+FlushAsync "blocks" when amount of data in Pipe crosses PauseWriterThreshold  and "unblocks" when it becomes lower then ResumeWriterThreshold. Two values are used to prevent thrashing around the limit.
+
+### Scheduling IO
+
+Usually when using async/await, IO 
+
+## Related types
+
+### ReadOnlySequence\<T\>
+
+As part of making
+
+### IBufferWriter\<T\>
 
 ## How do I use them?
 
