@@ -131,7 +131,7 @@ async Task AcceptAsync(Socket socket)
 
 This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, ProcessLine now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle either a single/multiple buffer segments.
 
-There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 2.0 to avoid repeated buffer allocations as we're parse more lines from the client. We also probably don't want to pass small buffers to `ReadAsync` as that would result in more calls into the operating system.
+There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 1.0 to avoid repeated buffer allocations as we're parse more lines from the client. We also probably don't want to pass small buffers to `ReadAsync` as that would result in more calls into the operating system.
 
 ```C#
 async Task AcceptAsync(Socket socket)
@@ -283,15 +283,16 @@ As mentioned previously, one of the challenges of de-coupling the parsing thread
 
 ### Scheduling IO
 
-Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. When doing IO it's very important to have fine grained control over where that IO is performed and pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. An example where this is used in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
-
-## Related types
+Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. When doing IO it's very important to have fine grained control over where that IO is performed and pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. An example of this in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
 
 ### ReadOnlySequence\<T\>
 
-As part of making
+### Other Related types
 
-### IBufferWriter\<T\>
+As part of making System.IO.Pipelines, we also added a number of new primitive BCL types:
+- `MemoryPool<T>` - .NET Core 1.0 added `ArrayPool<T>` and in .NET Core 2.1 we now have a more general abstration for a pool that works for more than just `T[]`. 
+- `IBufferWriter<T>` - Represents a sink for writing synchronous buffered data (`PipeWriter` implements this)
+- `IValueTaskSource<T>`, `ValueTask` (non-generic) - `ValueTask<T>` has existed since .NET Core 1.1 but has gained some super powers in .NET Core 2.1 to allow allocation-free awaitable async operations. See https://github.com/dotnet/corefx/issues/27445 for more details.
 
 ## How do I use them?
 
