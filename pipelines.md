@@ -290,8 +290,8 @@ Usually when using async/await, continuations are called on either on thread poo
 ### Other Related types
 
 As part of making System.IO.Pipelines, we also added a number of new primitive BCL types:
-- `MemoryPool<T>` - .NET Core 1.0 added `ArrayPool<T>` and in .NET Core 2.1 we now have a more general abstration for a pool that works for more than just `T[]`. 
-- `IBufferWriter<T>` - Represents a sink for writing synchronous buffered data (`PipeWriter` implements this)
+- `MemoryPool<T>`, `IMemoryOwner<T>`, `MemoryManager<T>` - .NET Core 1.0 added `ArrayPool<T>` and in .NET Core 2.1 we now have a more general abstration for a pool that works for more than just `T[]`.
+- `IBufferWriter<T>` - Represents a sink for writing synchronous buffered data. (`PipeWriter` implements this)
 - `IValueTaskSource<T>`, `ValueTask` (non-generic) - `ValueTask<T>` has existed since .NET Core 1.1 but has gained some super powers in .NET Core 2.1 to allow allocation-free awaitable async operations. See https://github.com/dotnet/corefx/issues/27445 for more details.
 
 ## How do I use them?
