@@ -8,7 +8,7 @@ System.IO.Pipelines was born from the work the .NET Core team did to make Kestre
 
 ## What problem does it solve? 
 
-Correctly parsing data from a stream or socket involves a large amount of complex boiler plate code and has many corner case issues. [Show me the code](#tcp-server-with-systemiopipelines)
+Correctly parsing data from a stream or socket involves a large amount of complex boiler plate code and has many corner case issues. [Skip to the System.IO.Pipelines version](#tcp-server-with-systemiopipelines)
 
 Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical code you would write in .NET before pipelines looks something like this:
 
