@@ -214,7 +214,7 @@ Our server now handles partial messages, and it uses pooled memory to reduce ove
 
 The complexity has gone through the roof (and we haven't even covered all of the cases). High performance networking usually means writing very complex code in order to eke out more performance from the system. 
 
-The goal of `System.IO.Pipelines` is to make writing this type of code easier.
+*The goal of `System.IO.Pipelines` is to make writing this type of code easier.*
 
 ### TCP server with System.IO.Pipelines
 
