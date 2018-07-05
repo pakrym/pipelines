@@ -11,7 +11,7 @@ Today Pipelines powers Kestrel and SignalR and we hope to see it at the center o
 ## What problem does it solve? 
 
 Correctly parsing data from a stream or socket is dominated by boilerplate code and has many corner cases; leading to complex code. 
-Achieving high performance and being correct; while also dealing this complexity, is unnecessarily hard. Pipelines aims to solve this complexity. [Skip to the pipelines version](#tcp-server-with-systemiopipelines)
+Achieving high performance and being correct; while also dealing with this complexity, is unnecessarily hard. Pipelines aims to solve this complexity. [Skip to the pipelines version](#tcp-server-with-systemiopipelines)
 
 ## What extra complexity does Streams involve? 
 
