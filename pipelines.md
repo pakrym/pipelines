@@ -153,11 +153,11 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
+This code just got much more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
 
 There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. 
 
-We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we're parse more lines from the client: 
+We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse more lines from the client: 
 
 ```C#
 async Task AcceptAsync(Socket socket)
@@ -210,9 +210,9 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we want to make: 
+Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption, but there are still a couple more changes we want to make: 
 
-1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. 
+1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector, since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. 
 2. The throughput can be optimized by decoupling the reading and processing logic. This creates a batching effect that lets the parsing logic consume larger chunks of buffers, instead of reading more data only after parsing a single line. This introduces some additional complexity:
     - We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
     - We need a way to signal the parsing logic when data becomes available.
@@ -357,17 +357,17 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
 ### Back pressure and flow control
 
-In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the parsing thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
+In a perfect world, reading & parsing work as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the parsing thread will have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
 
 To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` pauses. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume.
 
 ![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
 
-`PipeWriter.FlushAsync` "blocks" when amount of data in `Pipe` crosses `PauseWriterThreshold` and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
+`PipeWriter.FlushAsync` "blocks" when the amount of data in the `Pipe` crosses `PauseWriterThreshold` and "unblocks" when it becomes lower than `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
 
 ### Scheduling IO
 
-Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. 
+Usually when using async/await, continuations are called either on thread pool threads or on the current `SynchronizationContext`. 
 
 When doing IO it's very important to have fine grained control over where that IO is performed so that one can take advantage of CPU caches more effectively, which is critical for high-performance oriented application, such as web servers. Pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. 
 
