@@ -252,8 +252,7 @@ async Task AcceptAsync(Socket socket)
         reader.Complete();
     }
 
-    await reading;
-    await writing;
+    await Task.WhenAll(reading, writing);
 }
 ```
 
