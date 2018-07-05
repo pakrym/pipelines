@@ -10,6 +10,8 @@ System.IO.Pipelines was born from the work the .NET Core team did to make Kestre
 
 Correctly parsing data from a stream or socket involves a large amount of complex boiler plate code and has many corner case issues. [Skip to the System.IO.Pipelines version](#tcp-server-with-systemiopipelines)
 
+### TCP Server with NetworkStream
+
 Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical code you would write in .NET before pipelines looks something like this:
 
 ```C#
@@ -193,7 +195,7 @@ Our server now handles partial messages, and it uses pooled memory to reduce ove
 
 The complexity has gone through the roof (and we haven't even covered all of the cases). High performance networking usually means writing very complex code in order to eke out more performance from the system. The goal of System.IO.Pipelines is to make writing this type of code easier.
 
-## TCP server with System.IO.Pipelines
+### TCP server with System.IO.Pipelines
 
 Let's take a look at what this example looks like with System.IO.Pipelines.
 
