@@ -42,16 +42,16 @@ These are some of the common pitfalls when reading streaming data. To account fo
 async Task ProcessLinesAsync(NetworkStream stream)
 {
     var buffer = new byte[1024];
-    var read = 0;
-    while (read < buffer.Length)
+    var bytesBuffered = 0;
+    while (bytesBuffered < buffer.Length)
     {
-        var current = await stream.ReadAsync(buffer, read, buffer.Length - read);
-        if (current == 0)
+        var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, buffer.Length - bytesBuffered);
+        if (bytesRead == 0)
         {
             break;
         }
-        read += current;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+        bytesBuffered += bytesRead;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (lineLength >= 0) 
         {
@@ -68,28 +68,28 @@ Once again, this might work in local testing but it's possible that the line is 
 async Task ProcessLinesAsync(NetworkStream stream)
 {
     var buffer = new byte[1024];
-    var read = 0;
+    var bytesBuffered = 0;
     while (true)
     {
-        var remaining = buffer.Length - read;
+        var bytesRemaining = buffer.Length - bytesBuffered;
 
-        if (remaining == 0)
+        if (bytesRemaining == 0)
         {
             var newBuffer = new byte[buffer.Length * 2];
             Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
             buffer = newBuffer;
-            read = 0;
-            remaining = buffer.Length;
+            bytesRead = 0;
+            bytesRemaining = buffer.Length;
         }
 
-        var current = await stream.ReadAsync(buffer, read, remaining);
-        if (current == 0)
+        var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
+        if (bytesRead == 0)
         {
             break;
         }
 
-        read += current;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+        bytesBuffered += bytesRead;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (lineLength >= 0) 
         {
@@ -113,27 +113,27 @@ async Task ProcessLinesAsync(NetworkStream stream)
 
     var buffers = new List<ArraySegment<byte>>();
     var buffer = new byte[1024];
-    var read = 0;
+    var bytesBuffered = 0;
     while (true)
     {
-        var remaining = buffer.Length - read;
+        var bytesRemaining = buffer.Length - bytesBuffered;
 
-        if (remaining < minimumBufferSize)
+        if (bytesRemaining < minimumBufferSize)
         {
-            buffers.Add(new ArraySegment<byte>(buffer, 0, read));
+            buffers.Add(new ArraySegment<byte>(buffer, 0, bytesBuffered));
             buffer = new byte[1024];
-            read = 0;
-            remaining = buffer.Length;
+            bytesBuffered = 0;
+            bytesRemaining = buffer.Length;
         }
 
-        var current = await stream.ReadAsync(buffer, read, remaining);
-        if (current == 0)
+        var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
+        if (bytesRead == 0)
         {
             break;
         }
 
-        read += current;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+        bytesBuffered += bytesRead;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (lineLength >= 0) 
         {
@@ -143,7 +143,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
            
             buffers.Clear();
 
-            read = 0;
+            bytesBuffered = 0;
         }
     }
 }
@@ -162,27 +162,27 @@ async Task ProcessLinesAsync(NetworkStream stream)
 
     var buffers = new List<ArraySegment<byte>>();
     byte[] buffer = ArrayPool<byte>.Shared.Rent(1024);
-    var read = 0;
+    var bytesBuffered = 0;
     while (true)
     {
-        var remaining = buffer.Length - read;
+        var bytesRemaining = buffer.Length - bytesBuffered;
 
-        if (remaining < minimumBufferSize)
+        if (bytesRemaining < minimumBufferSize)
         {
-            buffers.Add(new ArraySegment<byte>(buffer, 0, read));
+            buffers.Add(new ArraySegment<byte>(buffer, 0, bytesBuffered));
             buffer = ArrayPool<byte>.Shared.Rent(1024);
-            read = 0;
-            remaining = buffer.Length;
+            bytesBuffered = 0;
+            bytesRemaining = buffer.Length;
         }
 
-        var current = await stream.ReadAsync(buffer, read, remaining);
-        if (current == 0)
+        var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
+        if (bytesRead == 0)
         {
             break;
         }
 
-        read += current;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
+        bytesBuffered += bytesRead;
+        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (lineLength >= 0) 
         {
@@ -199,7 +199,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
             
             buffer = ArrayPool<byte>.Shared.Rent(1024);
 
-            read = 0;
+            bytesBuffered = 0;
         }
     }
 }
