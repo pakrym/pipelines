@@ -277,11 +277,11 @@ At the end of each of the loops, we complete both the reader and the writer.
 
 ### Back pressure and flow control
 
-As mentioned previously, one of the challenges of de-coupling the parsing thread from the reading thread is the fact that we may end up buffering too much data if the parsing thread can't keep up with the reading thread. To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before to read before the writing can continue.
+As mentioned previously, one of the challenges of de-coupling the parsing thread from the reading thread is the fact that we may end up buffering too much data if the parsing thread can't keep up with the reading thread. To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume (the ValueTask returned from `PipeWriter.FlushAsync` is marked as complete).
 
 ![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
 
-`PipeWriter.FlushAsync` "blocks" when amount of data in Pipe crosses `PauseWriterThreshold`  and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
+`PipeWriter.FlushAsync` "blocks" when amount of data in `Pipe` crosses `PauseWriterThreshold`  and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
 
 ### Scheduling IO
 
