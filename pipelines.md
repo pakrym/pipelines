@@ -193,7 +193,7 @@ async Task AcceptAsync(Socket socket)
 Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we want to make: 
 
 1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change.
-2. The throughput can be optimized by decoupling the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
+2. The throughput can be optimized by decoupling the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces some additional complexity:
     - We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
     - We need a way to signal the parsing logic when data becomes available.
     - We need to decide what happens if the loop reading from the `Socket` is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
