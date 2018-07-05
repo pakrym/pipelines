@@ -308,6 +308,14 @@ At the end of each of the loops, we complete both the reader and the writer. Thi
 
 ## System.IO.Pipelines
 
+### Partial Reads
+
+Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it. 
+
+`PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` does a couple of things, it tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
+
+It also allows the reader to tell the `PipeReader` "don't wake me up again until there's more data available". This is important for the performance of the reader as it means the reader won't be signalled until there's more data than was previously marked "observed".
+
 ### ReadOnlySequence\<T\>
 
 The `Pipe` implementation stores a linked list of buffers that get passed between the `PipeWriter` and `PipeReader`. `PipeReader.ReadAsync` exposes a `ReadOnlySequence<T>` which is a new BCL type that represents a view over one or more  segments of `ReadOnlyMemory<T>`, similar to `Span<T>` and `Memory<T>` which provide a view over arrays and strings.
@@ -339,14 +347,6 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
     });
 }
 ```
-
-### Partial Reads
-
-Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it. 
-
-`PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` does a couple of things, it tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
-
-It also allows the reader to tell the `PipeReader` "don't wake me up again until there's more data available". This is important for the performance of the reader as it means the reader won't be signalled until there's more data than was previously marked "observed".
 
 ### Back pressure and flow control
 
