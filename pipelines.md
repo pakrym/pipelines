@@ -2,7 +2,7 @@
 
 ## What is it?
 
-System.IO.Pipelines is a new library that is designed for doing high performance IO in .NET. It's new in .NET Core 2.1 and is a netstandard library that works on all .NET implementations. 
+System.IO.Pipelines is a new library that is designed for doing high performance IO in .NET. It's a new netstandard library that works on all .NET implementations. 
 
 It was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. What started as an implementation detail inside of Kestrel progressed into a re-usable API that shipped in 2.1 as a first class BCL API (System.IO.Pipelines) available for all .NET developers. 
 
@@ -206,7 +206,7 @@ async Task AcceptAsync(Socket socket)
 Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we want to make: 
 
 1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. 
-2. The throughput can be optimized by decoupling the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces some additional complexity:
+2. The throughput can be optimized by decoupling the reading and processing logic. This creates a batching effect that lets the parsing logic consume larger chunks of buffers, instead of reading more data only after parsing a single line. This introduces some additional complexity:
     - We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
     - We need a way to signal the parsing logic when data becomes available.
     - We need to decide what happens if the loop reading from the `Socket` is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
