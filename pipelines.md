@@ -279,13 +279,20 @@ async Task ReadPipeAsync(PipeReader reader)
         ReadResult result = await reader.ReadAsync();
 
         ReadOnlySequence<byte> buffer = result.Buffer;
-        SequencePosition? position = buffer.PositionOf((byte)'\n');
-
-        if (position != null)
+        SequencePosition? position = null;
+        
+        
+        do 
         {
-            ProcessLine(buffer.Slice(0, position.Value));
-            buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+            position = buffer.PositionOf((byte)'\n');
+
+            if (position != null)
+            {
+                ProcessLine(buffer.Slice(0, position.Value));
+                buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+            }
         }
+        while (position != null);
 
         reader.AdvanceTo(buffer.Start);
 
