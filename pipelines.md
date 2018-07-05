@@ -1,6 +1,6 @@
 # System.IO.Pipelines: High performance IO in .NET
 
-[System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) is a new library that is designed for doing high performance IO in .NET. It's a library targeting .NET Standard that works on all .NET implementations. 
+[System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) is a new library that is designed to make it easier to do high performance IO in .NET. It's a library targeting .NET Standard that works on all .NET implementations. 
 
 Pipelines was born from the work the .NET Core team did to make Kestrel one of the [fastest web servers in the industry](https://www.techempower.com/benchmarks/#section=data-r16&hw=ph&test=plaintext). What started as an implementation detail inside of Kestrel progressed into a re-usable API that shipped in 2.1 as a first class BCL API (System.IO.Pipelines) available for all .NET developers. 
 
@@ -55,7 +55,7 @@ async Task AcceptAsync(Socket socket)
         read += current;
         var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, read);
 
-        if (lineLength >= 0)
+        if (lineLength >= 0) 
         {
             ProcessLine(buffer, 0, lineLength);
             read = 0;
@@ -153,7 +153,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
+This code just got much more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
 
 There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. 
 
@@ -321,7 +321,9 @@ Besides handling the memory management, the other core pipelines feature is the 
 
 `PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
 
-It also allows the reader to tell the `PipeReader` "don't wake me up again until there's more data available". This is important for the performance of the reader as it means the reader won't be signalled until there's more data than was previously marked "observed".
+Here's an example of an http parser that reads partial data buffers data in the `Pipe` until a valid start line is received.
+
+![image](https://user-images.githubusercontent.com/95136/42349904-1a6e3484-8063-11e8-8ac2-7f8e636b4a23.png)
 
 ### ReadOnlySequence\<T\>
 
