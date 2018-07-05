@@ -326,7 +326,7 @@ async Task ReadPipeAsync(PipeReader reader)
         }
         while (position != null);
 
-        reader.AdvanceTo(buffer.Start);
+        reader.AdvanceTo(buffer.Start, buffer.End);
 
         if (result.IsCompleted)
         {
