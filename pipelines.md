@@ -139,8 +139,10 @@ async Task AcceptAsync(Socket socket)
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
             ProcessLine(buffers);
-
+           
             buffers.Clear();
+            
+            read = buffer.Length;
         }
     }
 }
@@ -194,6 +196,8 @@ async Task AcceptAsync(Socket socket)
             }
 
             buffers.Clear();
+            
+            read = buffer.Length;
         }
     }
 }
