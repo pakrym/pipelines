@@ -197,6 +197,8 @@ async Task AcceptAsync(Socket socket)
 
             buffers.Clear();
             
+            buffer = ArrayPool<byte>.Shared.Rent(1024);
+
             read = 0;
         }
     }
