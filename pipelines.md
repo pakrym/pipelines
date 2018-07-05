@@ -8,8 +8,6 @@ System.IO.Pipelines was born from the work the .NET Core team did to make Kestre
 
 ## What problem does it solve? 
 
-TL;DR Pipelines makes it easy to write performant asynchronous IO code.
-
 Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
 code you would write in .NET before pipelines looks something like this:
 
