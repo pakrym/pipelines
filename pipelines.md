@@ -243,7 +243,7 @@ async Task AcceptAsync(Socket socket)
                 buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
             }
 
-            reader.AdvanceTo(buffer.Start, buffer.End);
+            reader.AdvanceTo(buffer.Start);
 
             if (result.IsCompleted)
             {
