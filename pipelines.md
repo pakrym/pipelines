@@ -296,6 +296,15 @@ In the second loop, we're consuming the buffers written by the `PipeWriter` whic
 
 At the end of each of the loops, we complete both the reader and the writer. This lets the underlying `Pipe` release all of the memory it allocated.
 
+### Efficent Generalization
+
+If parsing line delimited files was a common pattern; rather than having a specific `ProcessLine` method for one type of parsing, its easy enough to generalize the above just by adding a `Action<ReadOnlySequence<byte>> ProcessLine` parameter to the method signiture:
+```C#
+async Task AcceptAsync(Socket socket, Action<ReadOnlySequence<byte>> ProcessLine)
+```
+
+Now extracting lines from a `Socket` is self-contained and could be turned into a library method and cope with all types of line parsing by just passing a different method in as the `Action`.
+
 ## System.IO.Pipelines
 
 ### Partial Reads
@@ -372,8 +381,8 @@ As part of making System.IO.Pipelines, we also added a number of new primitive B
 
 ## How do I use them?
 
-The APIs exist in the [System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) nuget package. H
+The APIs exist in the [System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) nuget package. 
 
-ere's an example of a .NET Core 2.1 server application that uses pipelines to handle line based messages (our example above) https://github.com/davidfowl/TcpEcho. It should run with `dotnet run` (or by running it in Visual Studio). It listens to a socket on port 8087 and writes out received messages to the console. You can use a client like netcat or putty to make a connection to 8087 and send line based messages to see it working.
+Here's an example of a .NET Core 2.1 server application that uses pipelines to handle line based messages (our example above) https://github.com/davidfowl/TcpEcho. It should run with `dotnet run` (or by running it in Visual Studio). It listens to a socket on port 8087 and writes out received messages to the console. You can use a client like netcat or putty to make a connection to 8087 and send line based messages to see it working.
 
 Today Pipelines powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components from the .NET community. 
