@@ -294,20 +294,24 @@ The `Pipe` implementation stores a linked list of buffers and get passed between
 The `Pipe` internally maintains pointers to where the reader and writer are in the overall set of allocated data and updates them as data is written or read. The `SequencePosition` represents a single point in the overall linked list of buffers and can be used to efficiently Slice the `ReadOnlySequence<T>`. Since the `ReadOnlySequence<T>` can support one or more segments, it's typical for high performance processing logic to split fast and slow paths based on single or multiple segments. For example, here's a routine that wants to convert a UTF8 `ReadOnlySequence<byte>` into a `string`:
 
 ```C#
-string GetString(ReadOnlySequence<byte> buffer)
+string GetAsciiString(ReadOnlySequence<byte> buffer)
 {
     if (buffer.IsSingleSegment)
     {
-        return Encoding.UTF8.GetString(buffer.First.Span);
+        return Encoding.ASCII.GetString(buffer.First.Span);
     }
-    
+
     return string.Create((int)buffer.Length, buffer, (span, sequence) =>
     {
+        var output = span;
+
         foreach (var segment in sequence)
         {
-            ... // TODO: Fill this in
+            Encoding.ASCII.GetChars(segment.Span, output);
+
+            output = output.Slice(segment.Length);
         }
-    })
+    });
 }
 ```
 
