@@ -226,10 +226,10 @@ Let's take a look at what this example looks like with `System.IO.Pipelines`:
 Task AcceptAsync(Socket socket)
 {
     var pipe = new Pipe();
-    Task writing = ReadFromSocketAsync(socket, pipe.Writer);
+    Task writing = ReadFromSocketAsync(pipe.Writer);
     Task reading = ReadFromPipeAsync(pipe.Reader);
 
-    async Task ReadFromSocketAsync(Socket input, PipeWriter writer)
+    async Task ReadFromSocketAsync(PipeWriter writer)
     {
         const int minimumBufferSize = 512;
 
