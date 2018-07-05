@@ -350,13 +350,11 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
     return string.Create((int)buffer.Length, buffer, (span, sequence) =>
     {
-        var output = span;
-
         foreach (var segment in sequence)
         {
-            Encoding.ASCII.GetChars(segment.Span, output);
+            Encoding.ASCII.GetChars(segment.Span, span);
 
-            output = output.Slice(segment.Length);
+            span = span.Slice(segment.Length);
         }
     });
 }
