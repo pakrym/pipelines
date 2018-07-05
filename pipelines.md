@@ -296,15 +296,6 @@ In the second loop, we're consuming the buffers written by the `PipeWriter` whic
 
 At the end of each of the loops, we complete both the reader and the writer. This lets the underlying `Pipe` release all of the memory it allocated.
 
-### Efficent Generalization
-
-If parsing line delimited files was a common pattern; rather than having a specific `ProcessLine` method for one type of parsing, its easy enough to generalize the above just by adding a `Action<ReadOnlySequence<byte>> ProcessLine` parameter to the method signiture:
-```C#
-async Task AcceptAsync(Socket socket, Action<ReadOnlySequence<byte>> ProcessLine)
-```
-
-Now extracting lines from a `Socket` is self-contained and could be turned into a library method and cope with all types of line parsing by just passing a different method in as the `Action`.
-
 ## System.IO.Pipelines
 
 ### Partial Reads
