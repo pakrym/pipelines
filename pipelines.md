@@ -21,7 +21,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code might work when testing locally but it's broken because the entire message (end of line) may not been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. This is a common mistake when using `Stream` today. To make this work, we need to buffer the incoming data until we have found a new line.
+This code might work when testing locally but it's broken because the entire message (end of line) may not have been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. This is a common mistake when using `Stream` today. To make this work, we need to buffer the incoming data until we have found a new line.
 
 ```C#
 async Task AcceptAsync(Socket socket)
@@ -87,7 +87,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system. To mitigate this, we'll allocate a new buffer when we there's 512 bytes remaining in the buffer.
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system. To mitigate this, we'll allocate a new buffer when we there's 512 bytes remaining in the buffer.
 
 ```C#
 async Task AcceptAsync(Socket socket)
