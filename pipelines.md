@@ -37,7 +37,7 @@ This code might work when testing locally but it's has several errors:
 
 These are some of the common pitfalls when reading streaming data. To account for this we need to make a few changes:
 - We need to buffer the incoming data until we have found a new line.
-- We need to parse *all* of the lines returned in the buffer (exercise left to the reader).
+- We need to parse *all* of the lines returned in the buffer (left as an exercise to the reader).
 
 ```C#
 async Task ProcessLinesAsync(NetworkStream stream)
