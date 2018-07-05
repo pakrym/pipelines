@@ -17,6 +17,8 @@ Let's start with a simple problem. We want to write a TCP server that receives l
 
 ### TCP Server with NetworkStream
 
+**NOTE: As with all performance sensitive work, each of the scenarios should be measured within the context of your application. The overhead of the various techniques mentioned may not be necessary depending on the scale your networking applications need to handle.**
+
 The typical code you would write in .NET before pipelines looks something like this:
 
 ```C#
