@@ -56,7 +56,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
         if (linePosition >= 0) 
         {
             ProcessLine(buffer, 0, linePosition);
-            read = 0;
+            bytesBuffered = 0;
         }
     }
 }
@@ -94,7 +94,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
         if (linePosition >= 0) 
         {
             ProcessLine(buffer, 0, linePosition);
-            read = 0;
+            bytesBuffered = 0;
         }
     }
 }
