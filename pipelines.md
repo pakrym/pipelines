@@ -6,8 +6,12 @@ System.IO.Pipelines is a new library that is designed for doing high performance
 
 ## What problem does it solve? 
 
-Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. Correctly parsing data from a stream or socket involves a large amount of complex boilerplate code and has many corner cases. 
-Achieving high performance and being correct while also dealing this complexity is unnecessarily hard. Pipelines aims to solve this complexity. [Skip to the pipelines version](#tcp-server-with-systemiopipelines)
+Correctly parsing data from a stream or socket is dominated by boilerplate code and has many corner cases; leading to complex code. 
+Achieving high performance and being correct; while also dealing this complexity, is unnecessarily hard. Pipelines aims to solve this complexity. [Skip to the pipelines version](#tcp-server-with-systemiopipelines)
+
+## What extra complexity does Streams involve? 
+
+Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. 
 
 ### TCP Server with NetworkStream
 
