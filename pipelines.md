@@ -267,13 +267,11 @@ In the second loop, we're consuming the buffers written by the `PipeWriter` whic
 
 At the end of each of the loops, we complete both the reader and the writer.
 
-### Other benefits that arise from the `PipeReader` patterns:
-- Because the buffers are controlled by the `PipeReader` it makes writing a `PipeReader` that wraps another `PipeReader` *mostly* buffer free. The buffers from the underlying `PipeReader` flow all the way out to the reader.
-- Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
-- Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
-- Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation.
+## System.IO.Pipelines
 
-## Fine grained control
+### Partial Reads
+
+Besides handling the memory management, the other core pipelines feature is the ability to read data and specify how much data should be marked as consumed.
 
 ### Back pressure and flow control
 
@@ -316,6 +314,12 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
     });
 }
 ```
+
+### Other benefits that arise from the `PipeReader` patterns:
+- Because the buffers are controlled by the `PipeReader` it makes writing a `PipeReader` that wraps another `PipeReader` *mostly* buffer free. The buffers from the underlying `PipeReader` flow all the way out to the reader.
+- Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
+- Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
+- Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation.
 
 ### Other Related types
 
