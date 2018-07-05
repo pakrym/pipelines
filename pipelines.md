@@ -25,7 +25,7 @@ async Task AcceptAsync(Socket socket)
     var stream = new NetworkStream(socket);
     var buffer = new byte[1024];
     await stream.ReadAsync(buffer, 0, buffer.Length);
-    // Parse data
+    
     ProcessLine(buffer);
 }
 ```
@@ -52,7 +52,6 @@ async Task AcceptAsync(Socket socket)
 
         if (lineLength >= 0)
         {
-            // Parse data
             ProcessLine(buffer, 0, lineLength);
             read = 0;
         }
@@ -92,7 +91,6 @@ async Task AcceptAsync(Socket socket)
 
         if (lineLength >= 0) 
         {
-            // Parse data
             ProcessLine(buffer, 0, lineLength);
             read = 0;
         }
@@ -138,7 +136,6 @@ async Task AcceptAsync(Socket socket)
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
-            // Parse data
             ProcessLine(buffers);
 
             buffers.Clear();
@@ -187,7 +184,6 @@ async Task AcceptAsync(Socket socket)
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
-            // Parse data
             ProcessLine(buffers);
 
             foreach (var buffer buffers) 
@@ -262,7 +258,6 @@ async Task AcceptAsync(Socket socket)
 
             if (position != null)
             {
-                // Parse data
                 ProcessLine(buffer.Slice(0, position.Value));
                 buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
             }
@@ -300,7 +295,7 @@ At the end of each of the loops, we complete both the reader and the writer. Thi
 
 ### Partial Reads
 
-Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it ("observed" data). 
+Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it. 
 
 `PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` does a couple of things, it tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
 
