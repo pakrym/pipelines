@@ -25,6 +25,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
     var buffer = new byte[1024];
     await stream.ReadAsync(buffer, 0, buffer.Length);
     
+    // Process a single line from the buffer
     ProcessLine(buffer);
 }
 ```
@@ -48,14 +49,21 @@ async Task ProcessLinesAsync(NetworkStream stream)
         var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, buffer.Length - bytesBuffered);
         if (bytesRead == 0)
         {
+            // EOF
             break;
         }
+        // Keep track of the amount of buffered bytes
         bytesBuffered += bytesRead;
+        
+        // Look for a EOL in the buffered data
         var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (linePosition >= 0) 
         {
+            // Process the line
             ProcessLine(buffer, 0, linePosition);
+            
+            // Reset the buffered data
             bytesBuffered = 0;
         }
     }
@@ -71,13 +79,17 @@ async Task ProcessLinesAsync(NetworkStream stream)
     var bytesBuffered = 0;
     while (true)
     {
+        // Calculate the amount of bytes remaining in the buffer
         var bytesRemaining = buffer.Length - bytesBuffered;
 
         if (bytesRemaining == 0)
         {
+            // Double the buffer size and copy the previously buffered data into the new buffer
             var newBuffer = new byte[buffer.Length * 2];
             Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
             buffer = newBuffer;
+            
+            // Reset the counters that were tracking the amount of buffered data
             bytesRead = 0;
             bytesRemaining = buffer.Length;
         }
@@ -85,15 +97,22 @@ async Task ProcessLinesAsync(NetworkStream stream)
         var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
         if (bytesRead == 0)
         {
+            // EOF
             break;
         }
-
+        
+        // Keep track of the amount of buffered bytes
         bytesBuffered += bytesRead;
+        
+        // Look for a EOL in the buffered data
         var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (linePosition >= 0) 
         {
+            // Process the line
             ProcessLine(buffer, 0, linePosition);
+            
+            // Reset the buffered data
             bytesBuffered = 0;
         }
     }
@@ -116,12 +135,16 @@ async Task ProcessLinesAsync(NetworkStream stream)
     var bytesBuffered = 0;
     while (true)
     {
+        // Calculate the amount of bytes remaining in the buffer
         var bytesRemaining = buffer.Length - bytesBuffered;
 
         if (bytesRemaining < minimumBufferSize)
         {
+            // Store the buffered data in the list and allocate a new one
             buffers.Add(new ArraySegment<byte>(buffer, 0, bytesBuffered));
             buffer = new byte[1024];
+            
+            // Reset the counters that were tracking the amount of buffered data
             bytesBuffered = 0;
             bytesRemaining = buffer.Length;
         }
@@ -132,15 +155,20 @@ async Task ProcessLinesAsync(NetworkStream stream)
             break;
         }
 
+        // Keep track of the amount of buffered bytes
         bytesBuffered += bytesRead;
+        
+        // Look for a EOL in the buffered data
         var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (linePosition >= 0) 
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, linePosition));
 
+            // Process the line
             ProcessLine(buffers);
            
+            // Clear the buffered data
             buffers.Clear();
 
             bytesBuffered = 0;
@@ -169,8 +197,11 @@ async Task ProcessLinesAsync(NetworkStream stream)
 
         if (bytesRemaining < minimumBufferSize)
         {
+            // Store the buffered data in the list and allocate a new one from the ArrayPool<byte>
             buffers.Add(new ArraySegment<byte>(buffer, 0, bytesBuffered));
             buffer = ArrayPool<byte>.Shared.Rent(1024);
+            
+            // Reset the counters that were tracking the amount of buffered data
             bytesBuffered = 0;
             bytesRemaining = buffer.Length;
         }
@@ -181,22 +212,29 @@ async Task ProcessLinesAsync(NetworkStream stream)
             break;
         }
 
+        // Keep track of the amount of buffered bytes
         bytesBuffered += bytesRead;
+
+        // Look for a EOL in the buffered data
         var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
         if (linePosition >= 0) 
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, linePosition));
 
+            // Process the line
             ProcessLine(buffers);
 
+            // Return the rented arrays back to the pool
             foreach (var buffer in buffers) 
             {
                 ArrayPool<byte>.Shared.Return(buffer.Array);
             }
 
+            // Clear the buffers
             buffers.Clear();
             
+            // Reset the buffer so we can continue reading
             buffer = ArrayPool<byte>.Shared.Rent(1024);
 
             bytesBuffered = 0;
@@ -243,11 +281,12 @@ async Task FillPipeAsync(Socket socket, PipeWriter writer)
         Memory<byte> memory = writer.GetMemory(minimumBufferSize);
         try 
         {
-            int read = await socket.ReceiveAsync(memory, SocketFlags.None);
-            if (read == 0)
+            int bytesRead = await socket.ReceiveAsync(memory, SocketFlags.None);
+            if (bytesRead == 0)
             {
                 break;
             }
+            writer.Advance(bytesRead);
         }
         catch (Exception ex)
         {
@@ -255,7 +294,6 @@ async Task FillPipeAsync(Socket socket, PipeWriter writer)
             break;
         }
 
-        writer.Advance(read);
         FlushResult result = await writer.FlushAsync();
 
         if (result.IsCompleted)
@@ -360,7 +398,7 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
 ### Back pressure and flow control
 
-In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the parsing thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
+In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the reading thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
 
 To solve this problem, the pipe has two settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` pauses. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume.
 
