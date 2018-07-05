@@ -21,7 +21,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code might work when testing locally but it's broken in general because the entire message (end of line) may not been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. This is a common mistake when using `Stream` today. To make this work, we need to buffer the incoming data until we have found a new line.
+This code might work when testing locally but it's broken because the entire message (end of line) may not been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. This is a common mistake when using `Stream` today. To make this work, we need to buffer the incoming data until we have found a new line.
 
 ```C#
 async Task AcceptAsync(Socket socket)
