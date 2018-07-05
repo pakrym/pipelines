@@ -376,9 +376,9 @@ An example of this in practice is in the Kestrel Libuv transport where IO callba
 ### Other Related types
 
 As part of making System.IO.Pipelines, we also added a number of new primitive BCL types:
-- `MemoryPool<T>`, `IMemoryOwner<T>`, `MemoryManager<T>` - .NET Core 1.0 added `ArrayPool<T>` and in .NET Core 2.1 we now have a more general abstration for a pool that works for more than just `T[]`.
-- `IBufferWriter<T>` - Represents a sink for writing synchronous buffered data. (`PipeWriter` implements this)
-- `IValueTaskSource<T>`, `ValueTask` (non-generic) - `ValueTask<T>` has existed since .NET Core 1.1 but has gained some super powers in .NET Core 2.1 to allow allocation-free awaitable async operations. See https://github.com/dotnet/corefx/issues/27445 for more details.
+- [MemoryPool\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.memorypool-1?view=netcore-2.1), [IMemoryOwner\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.imemoryowner-1?view=netcore-2.1), [MemoryManager\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.memorymanager-1?view=netcore-2.1) - .NET Core 1.0 added [ArrayPool\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.arraypool-1?view=netcore-2.1) and in .NET Core 2.1 we now have a more general abstration for a pool that works for more than just `T[]`.
+- [IBufferWriter\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.ibufferwriter-1?view=netcore-2.1) - Represents a sink for writing synchronous buffered data. (`PipeWriter` implements this)
+- [IValueTaskSource<T>](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.sources.ivaluetasksource-1?view=netcore-2.1) - [ValueTask\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.valuetask-1?view=netcore-2.1) has existed since .NET Core 1.1 but has gained some super powers in .NET Core 2.1 to allow allocation-free awaitable async operations. See https://github.com/dotnet/corefx/issues/27445 for more details.
 
 ## How do I use Pipelines?
 
