@@ -217,7 +217,7 @@ The complexity has gone through the roof (and we haven't even covered all of the
 Let's take a look at what this example looks like with `System.IO.Pipelines`:
 
 ```C#
-async Task AcceptAsync(Socket socket)
+Task AcceptAsync(Socket socket)
 {
     var pipe = new Pipe();
     Task writing = ReadFromSocketAsync(socket, pipe.Writer);
@@ -230,11 +230,20 @@ async Task AcceptAsync(Socket socket)
         while (true)
         {
             Memory<byte> memory = writer.GetMemory(minimumBufferSize);
-            int read = await socket.ReceiveAsync(memory, SocketFlags.None);
-            if (read == 0)
+            try 
             {
+                int read = await socket.ReceiveAsync(memory, SocketFlags.None);
+                if (read == 0)
+                {
+                    break;
+                }
+            }
+            catch (Exception ex)
+            {
+                LogError(ex);
                 break;
             }
+            
             writer.Advance(read);
             FlushResult result = await writer.FlushAsync();
 
@@ -273,7 +282,7 @@ async Task AcceptAsync(Socket socket)
         reader.Complete();
     }
 
-    await Task.WhenAll(reading, writing);
+    return Task.WhenAll(reading, writing);
 }
 ```
 
