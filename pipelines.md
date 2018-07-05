@@ -13,7 +13,7 @@ Achieving high performance and being correct; while also dealing with this compl
 
 ## What extra complexity does Streams involve? 
 
-Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. 
+Let's start with a simple problem. We want to write a TCP server that receives line-delimited messages (delimited by \n) from a client. 
 
 ### TCP Server with NetworkStream
 
