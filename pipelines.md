@@ -378,19 +378,19 @@ To solve this problem, the pipe has two settings to control the flow of data, th
 
 Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. 
 
-When doing IO it's very important to have fine grained control over where that IO is performed so that one can take advantage of CPU caches more effectively, which is critical for high-performance oriented application, such as web servers. Pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. 
+When doing IO it's very important to have fine-grained control over where that IO is performed so that one can take advantage of CPU caches more effectively, which is critical for high-performance oriented application, such as web servers. Pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine-grained control over exactly what threads are used for IO. 
 
 An example of this in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
 
 ### Other benefits of the `PipeReader` pattern:
-- Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. This avoids the problem where having a large number of threads waiting for data doesn't immediately require reserving a huge amount of memory.
+- Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on Linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. This avoids the problem where having a large number of threads waiting for data doesn't immediately require reserving a huge amount of memory.
 - The default `Pipe` makes it easy to write unit tests against networking code because the parsing logic is separated from the networking code so unit tests only run the parsing logic against in-memory buffers rather than consuming directly from the network. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
 - Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation. 
 
 ### Other Related types
 
 As part of making System.IO.Pipelines, we also added a number of new primitive BCL types:
-- [MemoryPool\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.memorypool-1?view=netcore-2.1), [IMemoryOwner\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.imemoryowner-1?view=netcore-2.1), [MemoryManager\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.memorymanager-1?view=netcore-2.1) - .NET Core 1.0 added [ArrayPool\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.arraypool-1?view=netcore-2.1) and in .NET Core 2.1 we now have a more general abstration for a pool that works for more than just `T[]`.
+- [MemoryPool\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.memorypool-1?view=netcore-2.1), [IMemoryOwner\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.imemoryowner-1?view=netcore-2.1), [MemoryManager\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.memorymanager-1?view=netcore-2.1) - .NET Core 1.0 added [ArrayPool\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.arraypool-1?view=netcore-2.1) and in .NET Core 2.1 we now have a more general abstraction for a pool that works for more than just `T[]`.
 - [IBufferWriter\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.ibufferwriter-1?view=netcore-2.1) - Represents a sink for writing synchronous buffered data. (`PipeWriter` implements this)
 - [IValueTaskSource<T>](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.sources.ivaluetasksource-1?view=netcore-2.1) - [ValueTask\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.valuetask-1?view=netcore-2.1) has existed since .NET Core 1.1 but has gained some super powers in .NET Core 2.1 to allow allocation-free awaitable async operations. See https://github.com/dotnet/corefx/issues/27445 for more details.
 
@@ -400,4 +400,4 @@ The APIs exist in the [System.IO.Pipelines](https://www.nuget.org/packages/Syste
 
 Here's an example of a .NET Core 2.1 server application that uses pipelines to handle line based messages (our example above) https://github.com/davidfowl/TcpEcho. It should run with `dotnet run` (or by running it in Visual Studio). It listens to a socket on port 8087 and writes out received messages to the console. You can use a client like netcat or putty to make a connection to 8087 and send line based messages to see it working.
 
-Today Pipelines powers Kestrel and SignalR and we hope to see it at the center of many networking libraries and components from the .NET community. 
+Today Pipelines powers Kestrel and SignalR, and we hope to see it at the center of many networking libraries and components from the .NET community. 
