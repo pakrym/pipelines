@@ -286,9 +286,9 @@ The pipelines version of our line reader has 2 loops:
 - One loop reads from the `Socket` and writes into the `PipeWriter`.
 - The other loop reads from the `PipeReader` and parses incoming lines.
 
-Unlike the original examples, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. 
+Unlike the original examples, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. All buffer management is delegated to the `PipeReader`/`PipeWriter` implementations. 
 
-All buffer management is delegated to the `PipeReader`/`PipeWriter` implementations. This makes it easier for consuming code to focus solely on the business logic instead of complex buffer management. 
+**This makes it easier for consuming code to focus solely on the business logic instead of complex buffer management.** 
 
 In the first loop, we first call `PipeWriter.GetMemory(int)` to get some memory from the underlying writer then we call `PipeWriter.Advance(int)` to tell the `PipeWriter` how much data we actually wrote to the buffer. We then call `PipeWriter.FlushAsync()` to make the data available to the `PipeReader`.
 
