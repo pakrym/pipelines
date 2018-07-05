@@ -1,4 +1,4 @@
-# System.IO.Pipelines
+# System.IO.Pipelines: A new library for high performance IO in .NET
 
 ## What is it?
 
