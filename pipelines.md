@@ -2,16 +2,16 @@
 
 ## What is it?
 
-System.IO.Pipelines is a new library that is designed for doing high performance IO in .NET. It's a new netstandard library that works on all .NET implementations. 
+[System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) is a new library that is designed for doing high performance IO in .NET. It's a library targeting .NET Standard that works on all .NET implementations. 
 
-It was born from the work the .NET Core team did to make Kestrel one of the fastest web servers in the industry. What started as an implementation detail inside of Kestrel progressed into a re-usable API that shipped in 2.1 as a first class BCL API (System.IO.Pipelines) available for all .NET developers. 
+Pipelines was born from the work the .NET Core team did to make Kestrel one of the [fastest web servers in the industry](https://www.techempower.com/benchmarks/#section=data-r16&hw=ph&test=plaintext). What started as an implementation detail inside of Kestrel progressed into a re-usable API that shipped in 2.1 as a first class BCL API (System.IO.Pipelines) available for all .NET developers. 
 
 ## What problem does it solve? 
 
-Correctly parsing data from a stream or socket is dominated by boilerplate code and has many corner cases; leading to complex code. 
-Achieving high performance and being correct; while also dealing with this complexity, is unnecessarily hard. Pipelines aims to solve this complexity.
+Correctly parsing data from a stream or socket is dominated by boilerplate code and has many corner cases, leading to complex code that is difficult to maintain.
+Achieving high performance and being correct, while also dealing with this complexity is difficult. Pipelines aims to solve this complexity.
 
-## What extra complexity does Streams involve? 
+## What extra complexity exists today? 
 
 Let's start with a simple problem. We want to write a TCP server that receives line-delimited messages (delimited by \n) from a client. 
 
@@ -380,7 +380,7 @@ As part of making System.IO.Pipelines, we also added a number of new primitive B
 - `IBufferWriter<T>` - Represents a sink for writing synchronous buffered data. (`PipeWriter` implements this)
 - `IValueTaskSource<T>`, `ValueTask` (non-generic) - `ValueTask<T>` has existed since .NET Core 1.1 but has gained some super powers in .NET Core 2.1 to allow allocation-free awaitable async operations. See https://github.com/dotnet/corefx/issues/27445 for more details.
 
-## How do I use them?
+## How do I use Pipelines?
 
 The APIs exist in the [System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) nuget package. 
 
