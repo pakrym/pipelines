@@ -190,7 +190,7 @@ async Task AcceptAsync(Socket socket)
 
             ProcessLine(buffers);
 
-            foreach (var buffer buffers) 
+            foreach (var buffer in buffers) 
             {
                 ArrayPool<byte>.Shared.Return(buffer.Array);
             }
