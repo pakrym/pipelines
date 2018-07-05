@@ -181,7 +181,7 @@ This code just got much more complicated. We're keeping track of the filled up b
 
 There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. 
 
-We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we're parse more lines from the client: 
+We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse more lines from the client: 
 
 ```C#
 async Task ProcessLinesAsync(NetworkStream stream)
@@ -398,13 +398,13 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
 ### Back pressure and flow control
 
-In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the reading thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
+In a perfect world, reading & parsing are work as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the reading thread will have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
 
 To solve this problem, the pipe has two settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` pauses. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume.
 
 ![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
 
-`PipeWriter.FlushAsync` "blocks" when amount of data in `Pipe` crosses `PauseWriterThreshold` and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
+`PipeWriter.FlushAsync` "blocks" when the amount of data in the `Pipe` crosses `PauseWriterThreshold` and "unblocks" when it becomes lower than `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
 
 ### Scheduling IO
 
