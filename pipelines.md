@@ -141,7 +141,7 @@ async Task AcceptAsync(Socket socket)
             ProcessLine(buffers);
            
             buffers.Clear();
-            
+
             read = buffer.Length;
         }
     }
