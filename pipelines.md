@@ -1,7 +1,5 @@
 # System.IO.Pipelines: High performance IO in .NET
 
-## What is it?
-
 [System.IO.Pipelines](https://www.nuget.org/packages/System.IO.Pipelines/) is a new library that is designed for doing high performance IO in .NET. It's a library targeting .NET Standard that works on all .NET implementations. 
 
 Pipelines was born from the work the .NET Core team did to make Kestrel one of the [fastest web servers in the industry](https://www.techempower.com/benchmarks/#section=data-r16&hw=ph&test=plaintext). What started as an implementation detail inside of Kestrel progressed into a re-usable API that shipped in 2.1 as a first class BCL API (System.IO.Pipelines) available for all .NET developers. 
@@ -228,69 +226,69 @@ Let's take a look at what this example looks like with `System.IO.Pipelines`:
 Task AcceptAsync(Socket socket)
 {
     var pipe = new Pipe();
-    Task writing = ReadFromSocketAsync(pipe.Writer);
-    Task reading = ReadFromPipeAsync(pipe.Reader);
-
-    async Task ReadFromSocketAsync(PipeWriter writer)
-    {
-        const int minimumBufferSize = 512;
-
-        while (true)
-        {
-            Memory<byte> memory = writer.GetMemory(minimumBufferSize);
-            try 
-            {
-                int read = await socket.ReceiveAsync(memory, SocketFlags.None);
-                if (read == 0)
-                {
-                    break;
-                }
-            }
-            catch (Exception ex)
-            {
-                LogError(ex);
-                break;
-            }
-            
-            writer.Advance(read);
-            FlushResult result = await writer.FlushAsync();
-
-            if (result.IsCompleted)
-            {
-                break;
-            }
-        }
-
-        writer.Complete();
-    }
-
-    async Task ReadFromPipeAsync(PipeReader reader)
-    {
-        while (true)
-        {
-            ReadResult result = await reader.ReadAsync();
-
-            ReadOnlySequence<byte> buffer = result.Buffer;
-            SequencePosition? position = buffer.PositionOf((byte)'\n');
-
-            if (position != null)
-            {
-                ProcessLine(buffer.Slice(0, position.Value));
-                buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
-            }
-
-            reader.AdvanceTo(buffer.Start);
-
-            if (result.IsCompleted)
-            {
-                break;
-            }
-        }
-
-        reader.Complete();
-    }
+    Task writing = FillPipeAsync(socket, pipe.Writer);
+    Task reading = ReadPipeAsync(pipe.Reader);
 
     return Task.WhenAll(reading, writing);
+}
+
+async Task FillPipeAsync(Socket socket, PipeWriter writer)
+{
+    const int minimumBufferSize = 512;
+
+    while (true)
+    {
+        Memory<byte> memory = writer.GetMemory(minimumBufferSize);
+        try 
+        {
+            int read = await socket.ReceiveAsync(memory, SocketFlags.None);
+            if (read == 0)
+            {
+                break;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogError(ex);
+            break;
+        }
+
+        writer.Advance(read);
+        FlushResult result = await writer.FlushAsync();
+
+        if (result.IsCompleted)
+        {
+            break;
+        }
+    }
+
+    writer.Complete();
+}
+
+async Task ReadPipeAsync(PipeReader reader)
+{
+    while (true)
+    {
+        ReadResult result = await reader.ReadAsync();
+
+        ReadOnlySequence<byte> buffer = result.Buffer;
+        SequencePosition? position = buffer.PositionOf((byte)'\n');
+
+        if (position != null)
+        {
+            ProcessLine(buffer.Slice(0, position.Value));
+            buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
+        }
+
+        reader.AdvanceTo(buffer.Start);
+
+        if (result.IsCompleted)
+        {
+            break;
+        }
+    }
+
+    reader.Complete();
 }
 ```
 
@@ -324,7 +322,7 @@ The `Pipe` implementation stores a linked list of buffers that get passed betwee
 
 ![image](https://user-images.githubusercontent.com/95136/42292592-74a4028e-7f88-11e8-85f7-a6b2f925769d.png)
 
-The `Pipe` internally maintains pointers to where the reader and writer are in the overall set of allocated data and updates them as data is written or read. The `SequencePosition` represents a single point in the linked list of buffers and can be used to efficiently Slice the `ReadOnlySequence<T>`. 
+The `Pipe` internally maintains pointers to where the reader and writer are in the overall set of allocated data and updates them as data is written or read. The `SequencePosition` represents a single point in the linked list of buffers and can be used to efficiently slice the `ReadOnlySequence<T>`. 
 
 Since the `ReadOnlySequence<T>` can support one or more segments, it's typical for high performance processing logic to split fast and slow paths based on single or multiple segments. 
 
@@ -352,7 +350,7 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
 ### Back pressure and flow control
 
-As mentioned previously, one of the challenges of de-coupling the parsing thread from the reading thread is the fact that we may end up buffering too much data if the parsing thread can't keep up with the reading thread. 
+In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the parsing thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
 
 To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume (the ValueTask returned from `PipeWriter.FlushAsync` is marked as complete).
 
@@ -364,14 +362,14 @@ To solve this problem, the pipe has 2 settings to control the flow of data, the 
 
 Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. 
 
-When doing IO it's very important to have fine grained control over where that IO is performed and pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. 
+When doing IO it's very important to have fine grained control over where that IO is performed so that one can take advantage of CPU caches more effectively, which is critical for high-performance oriented application, such as web servers. Pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. 
 
 An example of this in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
 
 ### Other benefits of the `PipeReader` pattern:
-- Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
-- The default `Pipe` makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
-- Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation.
+- Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. This avoids the problem where having a large number of threads waiting for data doesn't immediately require reserving a huge amount of memory.
+- The default `Pipe` makes it easy to write unit tests against networking code because the parsing logic is separated from the networking code so unit tests only run the parsing logic against in-memory buffers rather than consuming directly from the network. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
+- Systems that allow exposing the underlying OS buffers (like the Registered IO APIs on Windows) to user code are a natural fit for pipelines since buffers are always provided by the `PipeReader` implementation. 
 
 ### Other Related types
 
