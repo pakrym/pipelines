@@ -100,7 +100,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system. 
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. It also potentially uses more memory as the logic doesn't shrink the buffer back to the original 1KiB after the line is processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system. 
 
 To mitigate this, we'll allocate a new buffer when there's less than 512 bytes remaining in the existing buffer:
 
