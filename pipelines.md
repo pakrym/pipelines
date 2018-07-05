@@ -308,32 +308,6 @@ At the end of each of the loops, we complete both the reader and the writer. Thi
 
 ## System.IO.Pipelines
 
-### Partial Reads
-
-Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it. 
-
-`PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` does a couple of things, it tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
-
-It also allows the reader to tell the `PipeReader` "don't wake me up again until there's more data available". This is important for the performance of the reader as it means the reader won't be signalled until there's more data than was previously marked "observed".
-
-### Back pressure and flow control
-
-As mentioned previously, one of the challenges of de-coupling the parsing thread from the reading thread is the fact that we may end up buffering too much data if the parsing thread can't keep up with the reading thread. 
-
-To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume (the ValueTask returned from `PipeWriter.FlushAsync` is marked as complete).
-
-![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
-
-`PipeWriter.FlushAsync` "blocks" when amount of data in `Pipe` crosses `PauseWriterThreshold` and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
-
-### Scheduling IO
-
-Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. 
-
-When doing IO it's very important to have fine grained control over where that IO is performed and pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. 
-
-An example of this in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
-
 ### ReadOnlySequence\<T\>
 
 The `Pipe` implementation stores a linked list of buffers that get passed between the `PipeWriter` and `PipeReader`. `PipeReader.ReadAsync` exposes a `ReadOnlySequence<T>` which is a new BCL type that represents a view over one or more  segments of `ReadOnlyMemory<T>`, similar to `Span<T>` and `Memory<T>` which provide a view over arrays and strings.
@@ -365,6 +339,32 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
     });
 }
 ```
+
+### Partial Reads
+
+Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it. 
+
+`PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` does a couple of things, it tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
+
+It also allows the reader to tell the `PipeReader` "don't wake me up again until there's more data available". This is important for the performance of the reader as it means the reader won't be signalled until there's more data than was previously marked "observed".
+
+### Back pressure and flow control
+
+As mentioned previously, one of the challenges of de-coupling the parsing thread from the reading thread is the fact that we may end up buffering too much data if the parsing thread can't keep up with the reading thread. 
+
+To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume (the ValueTask returned from `PipeWriter.FlushAsync` is marked as complete).
+
+![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
+
+`PipeWriter.FlushAsync` "blocks" when amount of data in `Pipe` crosses `PauseWriterThreshold` and "unblocks" when it becomes lower then `ResumeWriterThreshold`. Two values are used to prevent thrashing around the limit.
+
+### Scheduling IO
+
+Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. 
+
+When doing IO it's very important to have fine grained control over where that IO is performed and pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine grained control over exactly what threads are used for IO. 
+
+An example of this in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
 
 ### Other benefits of the `PipeReader` pattern:
 - Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
