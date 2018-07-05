@@ -30,9 +30,14 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code might work when testing locally but it's broken because the entire message (end of line) may not have been received in a single call to `ReadAsync`. Even worse, we're failing to look at the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer. 
+This code might work when testing locally but it's has several errors:
+- The entire message (end of line) may not have been received in a single call to `ReadAsync`. 
+- It's ignoring the result of `stream.ReadAsync()` which returns how much data was actually filled into the buffer.
+- It doesn't handle the case where multiple lines come back in a single `ReadAsync` call.
 
-This is a common mistake when using `Stream` today. To account for this, we need to buffer the incoming data until we have found a new line:
+These are some of the common pitfalls when reading streaming data. To account for this we need to make a few changes:
+- We need to buffer the incoming data until we have found a new line.
+- We need to parse *all* of the lines returned in the buffer.
 
 ```C#
 async Task AcceptAsync(Socket socket)
