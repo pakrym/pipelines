@@ -87,11 +87,13 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size.
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system.
 
 ```C#
 async Task AcceptAsync(Socket socket)
 {
+    const int minimumBufferSize = 512;
+    
     var stream = new NetworkStream(socket);
     var buffers = new List<ArraySegment<byte>>();
     var buffer = new byte[1024];
@@ -100,9 +102,9 @@ async Task AcceptAsync(Socket socket)
     {
         var remaining = buffer.Length - read;
 
-        if (remaining == 0)
+        if (remaining < minimumBufferSize)
         {
-            buffers.Add(new ArraySegment<byte>(buffer));
+            buffers.Add(new ArraySegment<byte>(buffer, 0, read));
             buffer = new byte[1024];
             read = 0;
             remaining = buffer.Length;
@@ -131,7 +133,7 @@ async Task AcceptAsync(Socket socket)
 
 This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, ProcessLine now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle either a single/multiple buffer segments.
 
-There are a few more optimizations that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can optimize this by using the new `ArrayPool<T>` introduced in .NET Core 1.0 to avoid repeated buffer allocations as we're parse more lines from the client. We also probably don't want to pass small buffers to `ReadAsync` as that would result in more calls into the operating system.
+There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can improve thes allocations by using the new `ArrayPool<T>` introduced in .NET Core 1.0 to avoid repeated buffer allocations as we're parse more lines from the client. 
 
 ```C#
 async Task AcceptAsync(Socket socket)
