@@ -142,7 +142,7 @@ async Task AcceptAsync(Socket socket)
            
             buffers.Clear();
 
-            read = buffer.Length;
+            read = 0;
         }
     }
 }
@@ -197,7 +197,7 @@ async Task AcceptAsync(Socket socket)
 
             buffers.Clear();
             
-            read = buffer.Length;
+            read = 0;
         }
     }
 }
