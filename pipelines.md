@@ -339,8 +339,8 @@ async Task ReadPipeAsync(PipeReader reader)
 ```
 
 The pipelines version of our line reader has 2 loops:
-- One loop reads from the `Socket` and writes into the `PipeWriter`.
-- The other loop reads from the `PipeReader` and parses incoming lines.
+- `FillPipeAsync` reads from the `Socket` and writes into the `PipeWriter`.
+- `ReadPipeAsync` reads from the `PipeReader` and parses incoming lines.
 
 Unlike the original examples, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. All buffer management is delegated to the `PipeReader`/`PipeWriter` implementations. 
 
