@@ -190,13 +190,16 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple of problems. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. The other issue we need to tackle the throughput. A common pattern used to increase the throughput is to decouple the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
-- We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
-- We need a way to signal the parsing logic when data becomes available.
-- We need to decide what happens if the loop reading from the `Socket` is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
-- We need to make sure things are thread safe. We're now sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
-- The memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
-- We need to be extremely careful with how we return buffers after the parsing logic is done with them. If we're not careful, it's possible that we return a buffer that's still being written to by the `Socket` reading logic.
+Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we want to make: 
+
+1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change.
+2. The throughput can be optimized by decoupling the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
+    - We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
+    - We need a way to signal the parsing logic when data becomes available.
+    - We need to decide what happens if the loop reading from the `Socket` is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
+    - We need to make sure things are thread safe. We're now sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
+    - The memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
+    - We need to be extremely careful with how we return buffers after the parsing logic is done with them. If we're not careful, it's possible that we return a buffer that's still being written to by the `Socket` reading logic.
 
 The complexity has gone through the roof (and we haven't even covered all of the cases). High performance networking usually means writing very complex code in order to eke out more performance from the system. The goal of System.IO.Pipelines is to make writing this type of code easier.
 
