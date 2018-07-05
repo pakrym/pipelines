@@ -263,15 +263,15 @@ The pipelines version of our line reader has 2 loops:
 
 Unlike, the `Stream` version of the example, there are no explicit buffers allocated anywhere. This is one of pipelines' core features. All buffer management is delegated to the `PipeReader`/`PipeWriter` implementations. This makes it easier for consuming code to focus solely on the business logic instead of complex buffer management. In the first loop, we first call `PipeWriter.GetMemory(int)` to get some memory from the underlying writer then we call `PipeWriter.Advance(int)` to tell the `PipeWriter` how much data we actually wrote to the buffer. We then call `PipeWriter.FlushAsync()` to make the data available to the `PipeReader`.
 
-In the second loop, we're consuming the buffers written by the `PipeWriter` which ultimately comes from the `Socket`. When the call to `PipeReader.ReadAsync()` returns, we get a `ReadResult` which contains 2 important pieces of information, the data that was read in the form of `ReadOnlySequence<byte>` and a bool `IsCompleted` that lets the reader know if more data would be written into the pipe. After finding the line end delimeter and parsing the line, we slice the buffer to skip what we've already processed and then we call `PipeReader.AdvanceTo` to tell the `PipeReader` how much data we have both consumed and observed. `PipeReader.AdvanceTo` does a couple of things, it signals to the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for e.g returned to the underlying buffer pool) and it allows the reader to identify the how much of the buffer was examined. This is important for performance when buffers can be partially consumed as  it allows the reader to say "don't wake me up again until there's more data available".
+In the second loop, we're consuming the buffers written by the `PipeWriter` which ultimately comes from the `Socket`. When the call to `PipeReader.ReadAsync()` returns, we get a `ReadResult` which contains 2 important pieces of information, the data that was read in the form of `ReadOnlySequence<byte>` and a bool `IsCompleted` that lets the reader know if more data would be written into the pipe. After finding the line end delimeter and parsing the line, we slice the buffer to skip what we've already processed and then we call `PipeReader.AdvanceTo` to tell the `PipeReader` how much data we have both consumed and observed. 
 
-At the end of each of the loops, we complete both the reader and the writer.
+At the end of each of the loops, we complete both the reader and the writer. This lets the underlying `Pipe` release all of the memory it allocated.
 
 ## System.IO.Pipelines
 
 ### Partial Reads
 
-Besides handling the memory management, the other core pipelines feature is the ability to read data and specify how much data should be marked as consumed.
+Besides handling the memory management, the other core pipelines feature is the ability to read data and specify how much data should be marked as "consumed" and how much data should be marked as "examined". `PipeReader.AdvanceTo` does a couple of things, it signals to the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool) and it allows the reader to identify the how much of the buffer was examined. This is important for performance when buffers can be partially consumed as  it allows the reader to say "don't wake me up again until there's more data available".
 
 ### Back pressure and flow control
 
