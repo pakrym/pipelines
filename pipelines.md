@@ -210,15 +210,15 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we want to make: 
+Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we need to make: 
 
-1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. 
+1. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchronous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. 
 2. The throughput can be optimized by decoupling the reading and processing logic. This creates a batching effect that lets the parsing logic consume larger chunks of buffers, instead of reading more data only after parsing a single line. This introduces some additional complexity:
-    - We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
+    - We need two loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
     - We need a way to signal the parsing logic when data becomes available.
     - We need to decide what happens if the loop reading from the `Socket` is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
     - We need to make sure things are thread safe. We're now sharing a set of buffers between the reading loop and the parsing loop and those run independently on different threads.
-    - The memory management logic is now spread across 2 different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
+    - The memory management logic is now spread across two different pieces of code, the code that rents from the buffer pool is reading from the socket and the code that returns from the buffer pool is the parsing logic.
     - We need to be extremely careful with how we return buffers after the parsing logic is done with them. If we're not careful, it's possible that we return a buffer that's still being written to by the `Socket` reading logic.
 
 The complexity has gone through the roof (and we haven't even covered all of the cases). High performance networking usually means writing very complex code in order to eke out more performance from the system. 
@@ -316,7 +316,7 @@ Unlike the original examples, there are no explicit buffers allocated anywhere. 
 
 In the first loop, we first call `PipeWriter.GetMemory(int)` to get some memory from the underlying writer then we call `PipeWriter.Advance(int)` to tell the `PipeWriter` how much data we actually wrote to the buffer. We then call `PipeWriter.FlushAsync()` to make the data available to the `PipeReader`.
 
-In the second loop, we're consuming the buffers written by the `PipeWriter` which ultimately comes from the `Socket`. When the call to `PipeReader.ReadAsync()` returns, we get a `ReadResult` which contains 2 important pieces of information, the data that was read in the form of `ReadOnlySequence<byte>` and a bool `IsCompleted` that lets the reader know if the writer is done writing (EOF). After finding the line end delimeter and parsing the line, we slice the buffer to skip what we've already processed and then we call `PipeReader.AdvanceTo` to tell the `PipeReader` how much data we have both consumed and observed. 
+In the second loop, we're consuming the buffers written by the `PipeWriter` which ultimately comes from the `Socket`. When the call to `PipeReader.ReadAsync()` returns, we get a `ReadResult` which contains 2 important pieces of information, the data that was read in the form of `ReadOnlySequence<byte>` and a bool `IsCompleted` that lets the reader know if the writer is done writing (EOF). After finding the end of line (EOL) delimiter and parsing the line, we slice the buffer to skip what we've already processed and then we call `PipeReader.AdvanceTo` to tell the `PipeReader` how much data we have both consumed and observed. 
 
 At the end of each of the loops, we complete both the reader and the writer. This lets the underlying `Pipe` release all of the memory it allocated.
 
@@ -326,7 +326,7 @@ At the end of each of the loops, we complete both the reader and the writer. Thi
 
 Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually consuming it. 
 
-`PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
+`PipeReader` has two core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). 
 
 Here's an example of an http parser that reads partial data buffers data in the `Pipe` until a valid start line is received.
 
@@ -368,7 +368,7 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
 In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the parsing thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
 
-To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` pauses. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume.
+To solve this problem, the pipe has two settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` pauses. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume.
 
 ![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
 
