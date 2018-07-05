@@ -141,7 +141,7 @@ async Task AcceptAsync(Socket socket)
 
 This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
 
-There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can improve the allocations by using the new `ArrayPool<T>` (introduced in .NET Core 1.0) to avoid repeated buffer allocations as we're parse more lines from the client. 
+There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we're parse more lines from the client. 
 
 ```C#
 async Task AcceptAsync(Socket socket)
