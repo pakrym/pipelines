@@ -25,6 +25,7 @@ async Task AcceptAsync(Socket socket)
     var stream = new NetworkStream(socket);
     var buffer = new byte[1024];
     await stream.ReadAsync(buffer, 0, buffer.Length);
+    // Parse data
     ProcessLine(buffer);
 }
 ```
@@ -51,6 +52,7 @@ async Task AcceptAsync(Socket socket)
 
         if (lineLength >= 0)
         {
+            // Parse data
             ProcessLine(buffer, 0, lineLength);
             read = 0;
         }
@@ -90,6 +92,7 @@ async Task AcceptAsync(Socket socket)
 
         if (lineLength >= 0) 
         {
+            // Parse data
             ProcessLine(buffer, 0, lineLength);
             read = 0;
         }
@@ -135,6 +138,7 @@ async Task AcceptAsync(Socket socket)
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
+            // Parse data
             ProcessLine(buffers);
 
             buffers.Clear();
@@ -183,6 +187,7 @@ async Task AcceptAsync(Socket socket)
         {
             buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
 
+            // Parse data
             ProcessLine(buffers);
 
             foreach (var buffer buffers) 
@@ -257,6 +262,7 @@ async Task AcceptAsync(Socket socket)
 
             if (position != null)
             {
+                // Parse data
                 ProcessLine(buffer.Slice(0, position.Value));
                 buffer = buffer.Slice(buffer.GetPosition(1, position.Value));
             }
