@@ -271,7 +271,7 @@ At the end of each of the loops, we complete both the reader and the writer. Thi
 
 ### Partial Reads
 
-Besides handling the memory management, the other core pipelines feature is the ability to read data and specify how much data should be marked as "consumed" and how much data should be marked as "examined". `PipeReader.AdvanceTo` does a couple of things, it signals to the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool) and it allows the reader to identify the how much of the buffer was examined. This is important for performance when buffers can be partially consumed as  it allows the reader to say "don't wake me up again until there's more data available".
+Besides handling the memory management, the other core pipelines feature is the ability to peek at data in the `Pipe` without actually reading it. `PipeReader` has 2 core APIs `ReadAsync` and `AdvanceTo`. `ReadAsync` gets the data in the `Pipe`, `AdvanceTo` does a couple of things, it tells the `PipeReader` that these buffers are no longer required by the reader so they can be discarded (for example returned to the underlying buffer pool). It also allows the reader to tell the `PipeReader` "don't wake me up again until there's more data available". This is important for the performance of the reader as it means the reader won't be signalled until there's more data than was previously marked "observed".
 
 ### Back pressure and flow control
 
@@ -315,7 +315,7 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 }
 ```
 
-### Other benefits that arise from the `PipeReader` patterns:
+### Other benefits of the `PipeReader` pattern:
 - Because the buffers are controlled by the `PipeReader` it makes writing a `PipeReader` that wraps another `PipeReader` *mostly* buffer free. The buffers from the underlying `PipeReader` flow all the way out to the reader.
 - Some underlying systems support a "bufferless wait", that is, a buffer never needs to be allocated until there's actually data available in the underlying system. For example on linux with epoll, it's possible to wait until data is ready before actually supplying a buffer to do the read. 
 - Having a default `Pipe` available makes it easy to write unit tests against networking code. It also makes it easy to test those hard to test patterns where partial data is sent. ASP.NET Core uses this to test various aspects of the Kestrel's http parser.
