@@ -87,7 +87,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system.
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system. To mitigate this, we'll allocate a new buffer when we there's 512 bytes remaining in the buffer.
 
 ```C#
 async Task AcceptAsync(Socket socket)
@@ -133,7 +133,7 @@ async Task AcceptAsync(Socket socket)
 
 This code just got much more complicated. We're keeping track the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle either a single/multiple buffer segments.
 
-There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can improve thes allocations by using the new `ArrayPool<T>` introduced in .NET Core 1.0 to avoid repeated buffer allocations as we're parse more lines from the client. 
+There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. We can improve thes allocations by using the new `ArrayPool<T>` (introduced in .NET Core 1.0) to avoid repeated buffer allocations as we're parse more lines from the client. 
 
 ```C#
 async Task AcceptAsync(Socket socket)
