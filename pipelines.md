@@ -8,6 +8,8 @@ System.IO.Pipelines was born from the work the .NET Core team did to make Kestre
 
 ## What problem does it solve? 
 
+TL;DR Pipelines makes it easy to write performant asynchronous IO code.
+
 Let's start with a simple problem. We want to write a TCP server that receives line based messages (delimited by \n) from a client. The typical
 code you would write in .NET before pipelines looks something like this:
 
@@ -182,7 +184,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption. Now we need to tackle the throughput. A common pattern used to increase the throughput is to decouple the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
+Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple of problems. The `byte[]` we're using from the `ArrayPool<byte>` are just regular managed arrays. This means whenever we do a `ReadAsync` or `WriteAsync`, those buffers get pinned for the lifetime of the asynchornous operation (in order to interop with the native IO APIs on the operating system). This has performance implications on the garbage collector since pinned memory cannot be moved which can lead to heap fragmentation. Depending on how long the async operations are pending, the pool implementation may need to change. The other issue we need to tackle the throughput. A common pattern used to increase the throughput is to decouple the reading and processing logic. This lets us consume buffers from the `Socket` as they become available without letting the parsing of those buffers stop us from reading more data. This introduces a couple problems though:
 - We need 2 loops that run independently of each other. One that reads from the `Socket` and one that parses the buffers.
 - We need a way to signal the parsing logic when data becomes available.
 - We need to decide what happens if the loop reading from the `Socket` is "too fast". We need a way to throttle the reading loop if the parsing logic can't keep up. This is commonly referred to as "flow control" or "back pressure".
