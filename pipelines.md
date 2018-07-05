@@ -51,11 +51,11 @@ async Task ProcessLinesAsync(NetworkStream stream)
             break;
         }
         bytesBuffered += bytesRead;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
+        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
-        if (lineLength >= 0) 
+        if (linePosition >= 0) 
         {
-            ProcessLine(buffer, 0, lineLength);
+            ProcessLine(buffer, 0, linePosition);
             read = 0;
         }
     }
@@ -89,11 +89,11 @@ async Task ProcessLinesAsync(NetworkStream stream)
         }
 
         bytesBuffered += bytesRead;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
+        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
-        if (lineLength >= 0) 
+        if (linePosition >= 0) 
         {
-            ProcessLine(buffer, 0, lineLength);
+            ProcessLine(buffer, 0, linePosition);
             read = 0;
         }
     }
@@ -133,11 +133,11 @@ async Task ProcessLinesAsync(NetworkStream stream)
         }
 
         bytesBuffered += bytesRead;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
+        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
-        if (lineLength >= 0) 
+        if (linePosition >= 0) 
         {
-            buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+            buffers.Add(new ArraySegment<byte>(buffer, 0, linePosition));
 
             ProcessLine(buffers);
            
@@ -182,11 +182,11 @@ async Task ProcessLinesAsync(NetworkStream stream)
         }
 
         bytesBuffered += bytesRead;
-        var lineLength = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
+        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
 
-        if (lineLength >= 0) 
+        if (linePosition >= 0) 
         {
-            buffers.Add(new ArraySegment<byte>(buffer, 0, lineLength));
+            buffers.Add(new ArraySegment<byte>(buffer, 0, linePosition));
 
             ProcessLine(buffers);
 
