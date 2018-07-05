@@ -59,7 +59,7 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-Once again, this might work in local testing but it's possible that the line is bigger than 1KiB (1024 bytes). So we need to resize the input buffer until we have found a new line:
+Once again, this might work in local testing but it's possible that the line is bigger than 1KiB (1024 bytes). We need to resize the input buffer until we have found a new line:
 
 ```C#
 async Task AcceptAsync(Socket socket)
@@ -98,7 +98,9 @@ async Task AcceptAsync(Socket socket)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. It also potentially uses more memory as the logic doesn't shrink the buffer back to the original 1KiB after the line is processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. We're also re-using the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system. 
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. It also potentially uses more memory as the logic doesn't shrink the buffer back to the original 1KiB after the line is processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. 
+
+We're also re-using the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system.
 
 To mitigate this, we'll allocate a new buffer when there's less than 512 bytes remaining in the existing buffer:
 
@@ -352,7 +354,7 @@ string GetAsciiString(ReadOnlySequence<byte> buffer)
 
 In a perfect world, reading & parsing are working as a team: the reading thread consumes the data from the network and puts it in buffers while the parsing thread is responsible for constructing the appropriate data structures. Normally, parsing will take more time than just copying blocks of data from the network. As a result, the reading thread can easily overwhelm the parsing thread. The result is that the parsing thread will either have to either slow down or allocate more memory to store the data for the parsing thread. For optimal performance, there is a balance between frequent pauses and allocating more memory.
 
-To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` returns an incomplete `ValueTask`. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume (the ValueTask returned from `PipeWriter.FlushAsync` is marked as complete).
+To solve this problem, the pipe has 2 settings to control the flow of data, the `PauseWriterThreshold` and the `ResumeWriterThreshold`. The `PauseWriterThreshold` determines how much data should be buffered before calls to `PipeWriter.FlushAsync` pauses. The `ResumeWriterThreshold` controls how much the reader has to consume before writing can resume.
 
 ![image](https://user-images.githubusercontent.com/95136/42291183-0114a0f2-7f7f-11e8-983f-5332b7585a09.png)
 
