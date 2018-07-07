@@ -215,6 +215,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
                 ArrayPool<byte>.Shared.Return(segment.Array);
                 segments.Remove(i);
             }
+            first = false;
         }
     }
 }
