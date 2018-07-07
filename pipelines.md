@@ -235,7 +235,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
 }
 ```
 
-This code just got *much* more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<BufferSegment>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<BufferSegment>` a segment offset an offset within that segment instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
+This code just got *much* more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<BufferSegment>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` and `IndexOf` now accept a `List<BufferSegment>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments. 
 
 There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. 
 
