@@ -83,7 +83,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
 
 Once again, this might work in local testing but it's possible that the line is bigger than 1KiB (1024 bytes). We need to resize the input buffer until we have found a new line.
 
-Also, we're allocating a 1KiB buffer on the heap as more lines are processed. We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse more lines from the client.
+Also, we're allocating buffers on the heap as longer lines are processed. We can improve this by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse longer lines from the client.
 
 ```C#
 async Task ProcessLinesAsync(NetworkStream stream)
