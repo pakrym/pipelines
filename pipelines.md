@@ -420,7 +420,7 @@ To solve this problem, the pipe has two settings to control the flow of data, th
 
 Usually when using async/await, continuations are called on either on thread pool threads or on the current `SynchronizationContext`. 
 
-When doing IO it's very important to have fine-grained control over where that IO is performed so that one can take advantage of CPU caches more effectively, which is critical for high-performance oriented application, such as web servers. Pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine-grained control over exactly what threads are used for IO. 
+When doing IO it's very important to have fine-grained control over where that IO is performed so that one can take advantage of CPU caches more effectively, which is critical for high-performance applications like web servers. Pipelines exposes a `PipeScheduler` that determines where asynchronous callbacks run. This gives the caller fine-grained control over exactly what threads are used for IO. 
 
 An example of this in practice is in the Kestrel Libuv transport where IO callbacks run on dedicated event loop threads.
 
