@@ -81,12 +81,14 @@ async Task ProcessLinesAsync(NetworkStream stream)
 }
 ```
 
-Once again, this might work in local testing but it's possible that the line is bigger than 1KiB (1024 bytes). We need to resize the input buffer until we have found a new line:
+Once again, this might work in local testing but it's possible that the line is bigger than 1KiB (1024 bytes). We need to resize the input buffer until we have found a new line.
+
+Also, we're allocating a 1KiB buffer on the heap as more lines are processed. We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse more lines from the client.
 
 ```C#
 async Task ProcessLinesAsync(NetworkStream stream)
 {
-    var buffer = new byte[1024];
+    byte[] buffer = ArrayPool<byte>.Shared.Rent(1024);
     var bytesBuffered = 0;
     var bytesConsumed = 0;
 
@@ -98,8 +100,10 @@ async Task ProcessLinesAsync(NetworkStream stream)
         if (bytesRemaining == 0)
         {
             // Double the buffer size and copy the previously buffered data into the new buffer
-            var newBuffer = new byte[buffer.Length * 2];
+            var newBuffer = ArrayPool<byte>.Shared.Rent(buffer.Length * 2);
             Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
+            // Return the old buffer to the pool
+            ArrayPool<byte>.Shared.Return(buffer);
             buffer = newBuffer;
             bytesRemaining = buffer.Length - bytesBuffered;
         }
@@ -136,110 +140,11 @@ async Task ProcessLinesAsync(NetworkStream stream)
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. It also uses more memory as the logic doesn't shrink the buffer after lines are processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. 
+This code works but now we're re-sizing the buffer which results in more buffer copies. It also uses more memory as the logic doesn't shrink the buffer after lines are processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. 
 
 Also, we don't grow the the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system.
 
 To mitigate this, we'll allocate a new buffer when there's less than 512 bytes remaining in the existing buffer:
-
-```C#
-public class BufferSegment
-{
-    public byte[] Buffer { get; set; }
-    public int Count { get; set; }
-
-    public int Remaining => Buffer.Length - Count;
-}
-
-async Task ProcessLinesAsync(NetworkStream stream)
-{
-    const int minimumBufferSize = 512;
-
-    var segments = new List<BufferSegment>();
-    var bytesConsumed = 0;
-    var bytesConsumedBufferIndex = 0;
-    var segment = new BufferSegment { Buffer = new byte[1024] };
-
-    segments.Add(segment);
-
-    while (true)
-    {
-        // Calculate the amount of bytes remaining in the buffer
-        if (segment.Remaining < minimumBufferSize)
-        {
-            // Allocate a new segment
-            segment = new BufferSegment { Buffer = new byte[1024] };
-            segments.Add(segment);
-        }
-
-        var bytesRead = await stream.ReadAsync(segment.Buffer, segment.Count, segment.Remaining);
-        if (bytesRead == 0)
-        {
-            break;
-        }
-
-        // Keep track of the amount of buffered bytes
-        segment.Count += bytesRead;
-
-        while (true)
-        {
-            // Look for a EOL in the list of segments
-            var (segmentIndex, segmentOffset) = IndexOf(segments, (byte)'\n', bytesConsumedBufferIndex, bytesConsumed);
-
-            if (segmentIndex >= 0)
-            {
-                // Process the line
-                ProcessLine(segments, segmentIndex, segmentOffset);
-
-                bytesConsumedBufferIndex = segmentOffset;
-                bytesConsumed = segmentOffset + 1;
-            }
-            else
-            {
-                break;
-            }
-        }
-
-        // Drop fully consumed segments from the list so we don't look at them again
-        var first = true;
-        for (var i = bytesConsumedBufferIndex; i >= 0; --i)
-        {
-            var consumed = first ? bytesConsumed >= segments[i].Count : true;
-            if (consumed)
-            {
-                segments.Remove(i);
-            }
-        }
-    }
-}
-
-(int segmentIndex, int segmentOffest) IndexOf(List<BufferSegment> segments, int startBufferIndex, int startSegmentOffset)
-{
-    var first = true;
-    for (var i = startBufferIndex; i < segments.Count; ++i)
-    {
-        var segment = segments[i];
-        // Start from the correct offset
-        var offset = first ? startSegmentOffset : 0;
-        var index = Array.IndexOf(segment.Buffer, (byte)'\n', offset, segment.Count);
-
-        if (index >= 0)
-        {
-            // Return the buffer index and the index within that segment where EOL was found
-            return (i, index);
-        }
-
-        first = false;
-    }
-    return (-1, -1);
-}
-```
-
-This code just got *much* more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<BufferSegment>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` and `IndexOf` now accept a `List<BufferSegment>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments. 
-
-There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. 
-
-We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse more lines from the client: 
 
 ```C#
 public class BufferSegment
@@ -335,6 +240,8 @@ async Task ProcessLinesAsync(NetworkStream stream)
     return (-1, -1);
 }
 ```
+
+This code just got *much* more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<BufferSegment>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` and `IndexOf` now accept a `List<BufferSegment>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments. 
 
 Our server now handles partial messages, and it uses pooled memory to reduce overall memory consumption but there are still a couple more changes we need to make: 
 
