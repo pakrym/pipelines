@@ -37,14 +37,16 @@ This code might work when testing locally but it's has several errors:
 
 These are some of the common pitfalls when reading streaming data. To account for this we need to make a few changes:
 - We need to buffer the incoming data until we have found a new line.
-- We need to parse *all* of the lines returned in the buffer (left as an exercise to the reader).
+- We need to parse *all* of the lines returned in the buffer
 
 ```C#
 async Task ProcessLinesAsync(NetworkStream stream)
 {
     var buffer = new byte[1024];
     var bytesBuffered = 0;
-    while (bytesBuffered < buffer.Length)
+    var bytesConsumed = 0;
+
+    while (true)
     {
         var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, buffer.Length - bytesBuffered);
         if (bytesRead == 0)
@@ -55,17 +57,26 @@ async Task ProcessLinesAsync(NetworkStream stream)
         // Keep track of the amount of buffered bytes
         bytesBuffered += bytesRead;
         
-        // Look for a EOL in the buffered data
-        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
+        var linePosition = -1;
 
-        if (linePosition >= 0) 
+        do
         {
-            // Process the line
-            ProcessLine(buffer, 0, linePosition);
-            
-            // Reset the buffered data
-            bytesBuffered = 0;
+            // Look for a EOL in the buffered data
+            linePosition = Array.IndexOf(buffer, (byte)'\n', bytesConsumed, bytesBuffered - bytesConsumed);
+
+            if (linePosition >= 0)
+            {
+                // Calculate the length of the line based on the offset
+                var lineLength = linePosition - bytesConsumed;
+
+                // Process the line
+                ProcessLine(buffer, bytesConsumed, lineLength);
+
+                // Move the bytesConsumed to skip past the line we consumed (including \n)
+                bytesConsumed += lineLength + 1;
+            }
         }
+        while (linePosition >= 0);
     }
 }
 ```
@@ -77,6 +88,8 @@ async Task ProcessLinesAsync(NetworkStream stream)
 {
     var buffer = new byte[1024];
     var bytesBuffered = 0;
+    var bytesConsumed = 0;
+
     while (true)
     {
         // Calculate the amount of bytes remaining in the buffer
@@ -88,10 +101,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
             var newBuffer = new byte[buffer.Length * 2];
             Buffer.BlockCopy(buffer, 0, newBuffer, 0, buffer.Length);
             buffer = newBuffer;
-            
-            // Reset the counters that were tracking the amount of buffered data
-            bytesRead = 0;
-            bytesRemaining = buffer.Length;
+            bytesRemaining = buffer.Length - bytesBuffered;
         }
 
         var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
@@ -104,142 +114,225 @@ async Task ProcessLinesAsync(NetworkStream stream)
         // Keep track of the amount of buffered bytes
         bytesBuffered += bytesRead;
         
-        // Look for a EOL in the buffered data
-        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
-
-        if (linePosition >= 0) 
+        do
         {
-            // Process the line
-            ProcessLine(buffer, 0, linePosition);
-            
-            // Reset the buffered data
-            bytesBuffered = 0;
+            // Look for a EOL in the buffered data
+            linePosition = Array.IndexOf(buffer, (byte)'\n', bytesConsumed, bytesBuffered - bytesConsumed);
+
+            if (linePosition >= 0)
+            {
+                // Calculate the length of the line based on the offset
+                var lineLength = linePosition - bytesConsumed;
+
+                // Process the line
+                ProcessLine(buffer, bytesConsumed, lineLength);
+
+                // Move the bytesConsumed to skip past the line we consumed (including \n)
+                bytesConsumed += lineLength + 1;
+            }
         }
+        while (linePosition >= 0);
     }
 }
 ```
 
-This code works but now we're re-sizing the buffer which causes extra allocations and copies. It also potentially uses more memory as the logic doesn't shrink the buffer back to the original 1KiB after the line is processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. 
+This code works but now we're re-sizing the buffer which causes extra allocations and copies. It also uses more memory as the logic doesn't shrink the buffer after lines are processed. To avoid this, we can store a list of buffers instead of resizing each time we cross the 1KiB buffer size. 
 
 Also, we don't grow the the 1KiB buffer until it's completely empty. This means we can end up passing smaller and smaller buffers to `ReadAsync` which will result in more calls into the operating system.
 
 To mitigate this, we'll allocate a new buffer when there's less than 512 bytes remaining in the existing buffer:
 
 ```C#
+public class BufferSegment
+{
+    public byte[] Buffer { get; set; }
+    public int Count { get; set; }
+
+    public int Remaining => Buffer.Length - Count;
+}
+
 async Task ProcessLinesAsync(NetworkStream stream)
 {
     const int minimumBufferSize = 512;
 
-    var buffers = new List<ArraySegment<byte>>();
-    var buffer = new byte[1024];
-    var bytesBuffered = 0;
+    var segments = new List<BufferSegment>();
+    var bytesConsumed = 0;
+    var bytesConsumedBufferIndex = 0;
+    var segment = new BufferSegment { Buffer = new byte[1024] };
+
+    segments.Add(segment);
+
     while (true)
     {
         // Calculate the amount of bytes remaining in the buffer
-        var bytesRemaining = buffer.Length - bytesBuffered;
-
-        if (bytesRemaining < minimumBufferSize)
+        if (segment.Remaining < minimumBufferSize)
         {
-            // Store the buffered data in the list and allocate a new one
-            buffers.Add(new ArraySegment<byte>(buffer, 0, bytesBuffered));
-            buffer = new byte[1024];
-            
-            // Reset the counters that were tracking the amount of buffered data
-            bytesBuffered = 0;
-            bytesRemaining = buffer.Length;
+            // Allocate a new segment
+            segment = new BufferSegment { Buffer = new byte[1024] };
+            segments.Add(segment);
         }
 
-        var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
+        var bytesRead = await stream.ReadAsync(segment.Buffer, segment.Count, segment.Remaining);
         if (bytesRead == 0)
         {
             break;
         }
 
         // Keep track of the amount of buffered bytes
-        bytesBuffered += bytesRead;
-        
-        // Look for a EOL in the buffered data
-        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
+        segment.Count += bytesRead;
 
-        if (linePosition >= 0) 
+        while (true)
         {
-            buffers.Add(new ArraySegment<byte>(buffer, 0, linePosition));
+            // Look for a EOL in the list of segments
+            var (segmentIndex, segmentOffset) = IndexOf(segments, (byte)'\n', bytesConsumedBufferIndex, bytesConsumed);
 
-            // Process the line
-            ProcessLine(buffers);
-           
-            // Clear the buffered data
-            buffers.Clear();
+            if (segmentIndex >= 0)
+            {
+                // Process the line
+                ProcessLine(segments, segmentIndex, segmentOffset);
 
-            bytesBuffered = 0;
+                bytesConsumedBufferIndex = segmentOffset;
+                bytesConsumed = segmentOffset + 1;
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        // Drop fully consumed segments from the list so we don't look at them again
+        var first = true;
+        for (var i = bytesConsumedBufferIndex; i >= 0; --i)
+        {
+            var consumed = first ? bytesConsumed >= segments[i].Count : true;
+            if (consumed)
+            {
+                segments.Remove(i);
+            }
         }
     }
 }
+
+(int segmentIndex, int segmentOffest) IndexOf(List<BufferSegment> segments, int startBufferIndex, int startSegmentOffset)
+{
+    var first = true;
+    for (var i = startBufferIndex; i < segments.Count; ++i)
+    {
+        var segment = segments[i];
+        // Start from the correct offset
+        var offset = first ? startSegmentOffset : 0;
+        var index = Array.IndexOf(segment.Buffer, (byte)'\n', offset, segment.Count);
+
+        if (index >= 0)
+        {
+            // Return the buffer index and the index within that segment where EOL was found
+            return (i, index);
+        }
+
+        first = false;
+    }
+    return (-1, -1);
+}
 ```
 
-This code just got much more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<ArraySegment<byte>>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<ArraySegment<byte>>` instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
+This code just got *much* more complicated. We're keeping track of the filled up buffers as we're looking for the delimeter. To do this, we're using a `List<BufferSegment>` here to represent the buffered data while looking for the new line delimeter. As a result, `ProcessLine` now accepts a `List<BufferSegment>` a segment offset an offset within that segment instead of a `byte[]`, `offset` and `count`. Our parsing logic needs to now handle one or more buffer segments.
 
 There's another optimization that we need to make before we call this server complete. Right now we have a bunch of heap allocated buffers in a list. 
 
 We can improve the allocations by using the `ArrayPool<byte>` to avoid repeated buffer allocations as we parse more lines from the client: 
 
 ```C#
+public class BufferSegment
+{
+    public byte[] Buffer { get; set; }
+    public int Count { get; set; }
+
+    public int Remaining => Buffer.Length - Count;
+}
+
 async Task ProcessLinesAsync(NetworkStream stream)
 {
     const int minimumBufferSize = 512;
 
-    var buffers = new List<ArraySegment<byte>>();
-    byte[] buffer = ArrayPool<byte>.Shared.Rent(1024);
-    var bytesBuffered = 0;
+    var segments = new List<BufferSegment>();
+    var bytesConsumed = 0;
+    var bytesConsumedBufferIndex = 0;
+    var segment = new BufferSegment { Buffer = ArrayPool<byte>.Shared.Rent(1024) };
+
+    segments.Add(segment);
+
     while (true)
     {
-        var bytesRemaining = buffer.Length - bytesBuffered;
-
-        if (bytesRemaining < minimumBufferSize)
+        // Calculate the amount of bytes remaining in the buffer
+        if (segment.Remaining < minimumBufferSize)
         {
-            // Store the buffered data in the list and allocate a new one from the ArrayPool<byte>
-            buffers.Add(new ArraySegment<byte>(buffer, 0, bytesBuffered));
-            buffer = ArrayPool<byte>.Shared.Rent(1024);
-            
-            // Reset the counters that were tracking the amount of buffered data
-            bytesBuffered = 0;
-            bytesRemaining = buffer.Length;
+            // Allocate a new segment
+            segment = new BufferSegment { Buffer = ArrayPool<byte>.Shared.Rent(1024) };
+            segments.Add(segment);
         }
 
-        var bytesRead = await stream.ReadAsync(buffer, bytesBuffered, bytesRemaining);
+        var bytesRead = await stream.ReadAsync(segment.Buffer, segment.Count, segment.Remaining);
         if (bytesRead == 0)
         {
             break;
         }
 
         // Keep track of the amount of buffered bytes
-        bytesBuffered += bytesRead;
+        segment.Count += bytesRead;
 
-        // Look for a EOL in the buffered data
-        var linePosition = Array.IndexOf(buffer, (byte)'\n', 0, bytesBuffered);
-
-        if (linePosition >= 0) 
+        while (true)
         {
-            buffers.Add(new ArraySegment<byte>(buffer, 0, linePosition));
+            // Look for a EOL in the list of segments
+            var (segmentIndex, segmentOffset) = IndexOf(segments, (byte)'\n', bytesConsumedBufferIndex, bytesConsumed);
 
-            // Process the line
-            ProcessLine(buffers);
-
-            // Return the rented arrays back to the pool
-            foreach (var buffer in buffers) 
+            if (segmentIndex >= 0)
             {
-                ArrayPool<byte>.Shared.Return(buffer.Array);
+                // Process the line
+                ProcessLine(segments, segmentIndex, segmentOffset);
+
+                bytesConsumedBufferIndex = segmentOffset;
+                bytesConsumed = segmentOffset + 1;
             }
+            else
+            {
+                break;
+            }
+        }
 
-            // Clear the buffers
-            buffers.Clear();
-            
-            // Reset the buffer so we can continue reading
-            buffer = ArrayPool<byte>.Shared.Rent(1024);
-
-            bytesBuffered = 0;
+        // Drop fully consumed segments from the list so we don't look at them again
+        var first = true;
+        for (var i = bytesConsumedBufferIndex; i >= 0; --i)
+        {
+            var segment = segments[i];
+            var consumed = first ? bytesConsumed >= segment.Count : true;
+            if (consumed)
+            {
+                ArrayPool<byte>.Shared.Return(segment.Array);
+                segments.Remove(i);
+            }
         }
     }
+}
+
+(int segmentIndex, int segmentOffest) IndexOf(List<BufferSegment> segments, int startBufferIndex, int startSegmentOffset)
+{
+    var first = true;
+    for (var i = startBufferIndex; i < segments.Count; ++i)
+    {
+        var segment = segments[i];
+        // Start from the correct offset
+        var offset = first ? startSegmentOffset : 0;
+        var index = Array.IndexOf(segment.Buffer, (byte)'\n', offset, segment.Count);
+
+        if (index >= 0)
+        {
+            // Return the buffer index and the index within that segment where EOL was found
+            return (i, index);
+        }
+
+        first = false;
+    }
+    return (-1, -1);
 }
 ```
 
