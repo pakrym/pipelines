@@ -205,22 +205,20 @@ async Task ProcessLinesAsync(NetworkStream stream)
         }
 
         // Drop fully consumed segments from the list so we don't look at them again
-        var first = true;
         for (var i = bytesConsumedBufferIndex; i >= 0; --i)
         {
-            var segment = segments[i];
-            var consumed = first ? bytesConsumed >= segment.Count : true;
-            if (consumed)
+            var consumedSegment = segments[i];
+            // Return all segments unless this is the current segment
+            if (consumedSegment != segment)
             {
-                ArrayPool<byte>.Shared.Return(segment.Array);
-                segments.Remove(i);
+                ArrayPool<byte>.Shared.Return(consumedSegment.Buffer);
+                segments.RemoveAt(i);
             }
-            first = false;
         }
     }
 }
 
-(int segmentIndex, int segmentOffest) IndexOf(List<BufferSegment> segments, int startBufferIndex, int startSegmentOffset)
+(int segmentIndex, int segmentOffest) IndexOf(List<BufferSegment> segments, byte value, int startBufferIndex, int startSegmentOffset)
 {
     var first = true;
     for (var i = startBufferIndex; i < segments.Count; ++i)
@@ -228,7 +226,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
         var segment = segments[i];
         // Start from the correct offset
         var offset = first ? startSegmentOffset : 0;
-        var index = Array.IndexOf(segment.Buffer, (byte)'\n', offset, segment.Count);
+        var index = Array.IndexOf(segment.Buffer, value, offset, segment.Count);
 
         if (index >= 0)
         {
