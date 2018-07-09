@@ -226,7 +226,7 @@ async Task ProcessLinesAsync(NetworkStream stream)
         var segment = segments[i];
         // Start from the correct offset
         var offset = first ? startSegmentOffset : 0;
-        var index = Array.IndexOf(segment.Buffer, value, offset, segment.Count);
+        var index = Array.IndexOf(segment.Buffer, value, offset, segment.Count - offset);
 
         if (index >= 0)
         {
